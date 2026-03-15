@@ -2,7 +2,7 @@
 # ==============================================================================
 # VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V3.0 - SUPREME OS EDITION)
 # STATUS: DIAMANT VGT SUPREME
-# LICENCE: MIT / SOVEREIGN GEEK
+# LICENCE: AGPLv3 / SOVEREIGN GEEK
 # ZWECK: Automatisches Verhaltens-basiertes Blockieren von Angreifern im Kernel.
 # FEATURES: Dual-Stack (IPv4/v6), Neon UI, Self-Healing Init, SSH-Heartbeat.
 # ==============================================================================
