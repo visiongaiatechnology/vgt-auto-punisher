@@ -1,6 +1,6 @@
 # ⚔️ VGT Auto-Punisher — Kernel-Level Behavioral IDS
 
-[![License](https://img.shields.io/badge/License-AGPLv3-yellow?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
 [![Kernel](https://img.shields.io/badge/Layer-Kernel_Level-red?style=for-the-badge)](#)
 [![Status](https://img.shields.io/badge/Status-DIAMANT-purple?style=for-the-badge)](#)
@@ -11,19 +11,79 @@
 
 ---
 
-## 🆕 V3.0 — DUAL STACK SUPREME
+## 🆕 V3.1 — SOVEREIGN EDITION
 
-[![Version](https://img.shields.io/badge/Version-3.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-3.1-brightgreen?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![Neon UI](https://img.shields.io/badge/UI-NEON_MATRIX-purple?style=for-the-badge)](#)
+[![AGPLv3](https://img.shields.io/badge/Licence-AGPLv3-green?style=for-the-badge)](#)
 
-**What's new in V3.0:**
+**What's new in V3.1:**
 
+- **AGPLv3 License** — *"For Humans, not for SaaS Corporations."* License statement displayed directly in the running tool.
 - **Full IPv6 Support** — Dual-Stack monitoring with separate `ipset hash:net family inet6` + `ip6tables` integration. IPv4 and IPv6 attacks detected and terminated independently.
 - **Neon Matrix UI** — Color-coded ANSI terminal dashboard. IPs approaching the ban threshold turn red in real-time.
 - **Dynamic Whitelist** — Configurable at the top of the script. Includes `127.0.0.1`, `::1`, `fe80::/10` (Link-Local) out of the box.
 - **IPv6 Infrastructure Strike deliberately disabled** — IPv6 range bans are omitted by design. ISPs assign dynamic /48 and /64 blocks — a range ban would hit legitimate users. Single-IP termination only for IPv6.
 - **Graceful Exit** — `CTRL+C` kills the heartbeat daemon cleanly. Your ipset bans remain active after exit.
+
+---
+
+## 📦 Two Variants — Choose Your Weapon
+
+This repository contains two variants of the Auto-Punisher. Both protect your server — they differ in backend technology and privilege model.
+
+| | **auto-punisher.sh** | **vgt_punisher_titan.sh** |
+|---|---|---|
+| **Backend** | iptables + ipset | nftables (modern kernel) |
+| **Privileges** | Full root | Dedicated restricted user |
+| **Setup** | Zero config — runs immediately | One-time `--setup` required |
+| **Target** | Maximum compatibility | Hardened production environments |
+| **Recommended for** | Quick deploy, older distros | Security-conscious setups |
+
+---
+
+## ⚔️ Variant A — auto-punisher.sh (Classic / Maximum Compatibility)
+
+Zero configuration. Runs on any Linux system with iptables. Recommended for quick deployment and older distributions.
+
+```bash
+chmod +x auto-punisher.sh
+sudo ./auto-punisher.sh
+```
+
+---
+
+## 🛡️ Variant B — vgt_punisher_titan.sh (nftables / Hardened)
+
+The hardened variant for production environments. Uses nftables instead of iptables and runs under a dedicated restricted system user with minimal privileges — not full root.
+
+### Important: One-Time Setup Required
+
+**Step 1 — Run setup** (creates the dedicated user and configures nftables):
+```bash
+sudo ./vgt_punisher_titan.sh --setup
+```
+
+**Step 2 — Transfer ownership to the new user:**
+```bash
+chown root:vgt-punisher vgt_punisher_titan.sh
+chmod 550 vgt_punisher_titan.sh
+```
+
+**Step 3 — Start the daemon as the restricted user:**
+```bash
+sudo -u vgt-punisher ./vgt_punisher_titan.sh
+```
+
+### Why nftables?
+- nftables is the modern replacement for iptables on Linux kernels 3.13+
+- More efficient ruleset evaluation
+- Atomic rule updates — no race conditions during rule changes
+- Native IPv4/IPv6 dual-stack in a single ruleset
+
+### Why a restricted user?
+Running security tooling as full root is a risk. The Titan variant uses Linux Capabilities (`CAP_NET_ADMIN`, `CAP_NET_RAW`) and a dedicated `vgt-punisher` system user with sudo restricted to exactly the commands needed. If the process is ever compromised, the blast radius is minimal.
 
 ```
 ============================================================================
@@ -276,4 +336,4 @@ VisionGaia Technology builds enterprise-grade security and AI tooling — engine
 
 ---
 
-*Version 3.0 (DUAL STACK SUPREME) — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
+*Version 3.1 (SOVEREIGN EDITION) — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
