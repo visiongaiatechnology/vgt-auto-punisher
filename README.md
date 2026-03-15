@@ -1,6 +1,6 @@
 # ⚔️ VGT Auto-Punisher — Kernel-Level Behavioral IDS
 
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-yellow?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
 [![Kernel](https://img.shields.io/badge/Layer-Kernel_Level-red?style=for-the-badge)](#)
 [![Status](https://img.shields.io/badge/Status-DIAMANT-purple?style=for-the-badge)](#)
