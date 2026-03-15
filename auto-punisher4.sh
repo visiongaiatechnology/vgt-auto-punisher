@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.1.3 - APEX PARADIGM)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.1.3 - BETA)
 # STATUS: DIAMANT VGT SUPREME (DPI & SANITIZATION RESTORED)
 # ARCHITECTURE: Nftables Netlink API + Passive Discovery
 # UPDATE: Re-Injektion der TCP-Sanitization (MSS, Invalid States, XMAS-Scans)
