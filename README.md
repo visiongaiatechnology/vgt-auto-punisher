@@ -7,19 +7,57 @@
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
-> *"Don't rate-limit attackers. Terminate them."*
-
-**VGT Auto-Punisher** is a zero-dependency, kernel-level behavioral Intrusion Detection System for Linux servers. It streams live kernel events via `journalctl`, analyzes behavioral patterns in real-time via `awk`, and executes permanent IP bans directly in the kernel via `ipset` + `iptables` — with zero application-layer overhead.
-
-No Python. No Node. No frameworks. Pure Bash + kernel primitives.
+> *"Don't rate-liAGPLv3 attackers. Terminate them."*
 
 ---
 
-## 🚨 The Problem With Standard Rate Limiters
+## 🆕 V3.0 — DUAL STACK SUPREME
 
-Most rate limiters operate at the application layer — Nginx, Apache, PHP. By the time they trigger, the attack has already consumed server resources.
+[![Version](https://img.shields.io/badge/Version-3.0-brightgreen?style=for-the-badge)](#)
+[![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
+[![Neon UI](https://img.shields.io/badge/UI-NEON_MATRIX-purple?style=for-the-badge)](#)
 
-| Standard Rate Limiters | VGT Auto-Punisher |
+**What's new in V3.0:**
+
+- **Full IPv6 Support** — Dual-Stack monitoring with separate `ipset hash:net family inet6` + `ip6tables` integration. IPv4 and IPv6 attacks detected and terminated independently.
+- **Neon Matrix UI** — Color-coded ANSI terminal dashboard. IPs approaching the ban threshold turn red in real-time.
+- **Dynamic Whitelist** — Configurable at the top of the script. Includes `127.0.0.1`, `::1`, `fe80::/10` (Link-Local) out of the box.
+- **IPv6 Infrastructure Strike deliberately disabled** — IPv6 range bans are oAGPLv3ted by design. ISPs assign dynamic /48 and /64 blocks — a range ban would hit legitimate users. Single-IP termination only for IPv6.
+- **Graceful Exit** — `CTRL+C` kills the heartbeat daemon cleanly. Your ipset bans remain active after exit.
+
+```
+============================================================================
+   VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE (V3.0)
+   Status: DUAL STACK SUPREME (IPv4 & IPv6 Monitoring)
+============================================================================
+   IP-LiAGPLv3: 15 | Range-LiAGPLv3: 30
+   Whitelist: 127.0.0.1 ::1 0.0.0.0 :: fe80::/10
+   Features:  Anti-Freeze Heartbeat, Neon-Matrix, Self-Healing Sensors
+----------------------------------------------------------------------------
+ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE
+----------------------------------------------------------------------------
+Mar 15 09:12:44     | 185.220.101.47                          |    1 |    3
+Mar 15 09:12:45     | 2a0e:97c0:4d0::1                        |    1 |    0
+...
+[!!!] PUNISH: IP 185.220.101.47 terminiert (LiAGPLv3 erreicht).
+----------------------------------------------------------------------------
+[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (LiAGPLv3 erreicht).
+----------------------------------------------------------------------------
+```
+
+---
+
+**VGT Auto-Punisher** is a zero-dependency, kernel-level behavioral Intrusion Detection System for Linux servers. It streams live kernel events via `journalctl`, analyzes behavioral patterns in real-time via `awk`, and executes permanent IP bans directly in the kernel via `ipset` + `iptables`/`ip6tables` — with zero application-layer overhead.
+
+No Python. No Node. No frameworks. Pure Bash + kernel priAGPLv3ives.
+
+---
+
+## 🚨 The Problem With Standard Rate LiAGPLv3ers
+
+Most rate liAGPLv3ers operate at the application layer — Nginx, Apache, PHP. By the time they trigger, the attack has already consumed server resources.
+
+| Standard Rate LiAGPLv3ers | VGT Auto-Punisher |
 |---|---|
 | ❌ Application layer — attack reaches PHP | ✅ Kernel layer — attack never reaches the app |
 | ❌ Temporary blocks — attacker retries | ✅ Permanent ipset ban — mathematically blocked |
@@ -56,7 +94,7 @@ On first run, Auto-Punisher automatically deploys its own defense infrastructure
 ```
 [VGT] Initialisiere System-Integritäts-Check...
 [+] Erstelle IPSET-Tabelle: VGT_AUTO_BANNED
-[+] Verknüpfe IPSET mit Firewall (Position 1)...
+[+] Verknüpfe IPSET AGPLv3 Firewall (Position 1)...
 [+] Installiere Anomalie-Sensor (Log-Regel)...
 [VGT] System-Integrität bestätigt. Schilde sind aktiv.
 ```
@@ -72,7 +110,7 @@ No manual iptables configuration required. No manual ipset setup. It installs it
    VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE
    Status: DIAMANT VGT SUPREME (READY FOR GITHUB)
 ==========================================================
-   IP-Limit: 30 | Range-Limit: 60
+   IP-LiAGPLv3: 30 | Range-LiAGPLv3: 60
    Sicherheit: Hard-Whitelist (127.0.0.1) ist AKTIV
 ----------------------------------------------------------
 ZEITSTEMPEL         | QUELL-IP        | HITS | RANGE-HITS
@@ -81,9 +119,9 @@ Mar 15 09:12:44     | 185.220.101.47  |    1 |    3
 Mar 15 09:12:44     | 185.220.101.52  |    1 |    4
 Mar 15 09:12:45     | 185.220.101.47  |    2 |    5
 ...
-[!!!] PUNISH: IP 185.220.101.47 terminiert (Limit 30 erreicht).
+[!!!] PUNISH: IP 185.220.101.47 terminiert (LiAGPLv3 30 erreicht).
 ----------------------------------------------------------
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (Limit 60 erreicht).
+[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (LiAGPLv3 60 erreicht).
 ----------------------------------------------------------
 ```
 
@@ -189,13 +227,15 @@ ipset list VGT_AUTO_BANNED | grep -c "^[0-9]"
 ## 📦 System Specs
 
 ```
-DETECTION_LAYER   KERNEL (iptables LOG → journalctl stream)
+DETECTION_LAYER   KERNEL (iptables/ip6tables LOG → journalctl stream)
 ANALYSIS_ENGINE   AWK (zero external dependencies)
-BAN_MECHANISM     ipset hash:net (supports up to 1,000,000 entries)
-PERSISTENCE       iptables-save → /etc/iptables/rules.v4
-STRIKE_MODES      Surgical (single IP) + Infrastructure (/24 subnet)
-WHITELIST         Hard-coded localhost + extensible
+BAN_MECHANISM     ipset hash:net (IPv4) + hash:net family inet6 (IPv6)
+PERSISTENCE       iptables-save → rules.v4 / ip6tables-save → rules.v6
+STRIKE_MODES      Surgical (single IP) + Infrastructure (/24 IPv4 only)
+IP_STACK          Dual-Stack (IPv4 + IPv6)
+WHITELIST         Dynamic — configurable at script top
 OVERHEAD          ~0% CPU idle (event-driven, no polling)
+UI                Neon Matrix (ANSI color-coded, real-time threat levels)
 ```
 
 ---
@@ -205,7 +245,8 @@ OVERHEAD          ~0% CPU idle (event-driven, no polling)
 - **Run as root** — kernel-level operations require root privileges
 - **Test your own IP first** — make sure your IP is whitelisted before deploying
 - **Aggressive by design** — thresholds are tuned for Tier 4 infrastructure. Lower them for shared hosting.
-- **IPv6** — currently IPv4 only. IPv6 support planned.
+- **IPv6 range bans disabled by design** — ISPs assign dynamic /48 and /64 blocks. Range bans would hit legitimate users. IPv6 single-IP bans only.
+- **ipset survives reboots** — bans are persisted via `iptables-save` and `ip6tables-save`
 
 ---
 
@@ -213,7 +254,7 @@ OVERHEAD          ~0% CPU idle (event-driven, no polling)
 
 Pull requests are welcome. For major changes, please open an issue first.
 
-Licensed under **MIT** — free to use, modify, and deploy.
+Licensed under **AGPLv3** — free to use, modify, and deploy.
 
 ---
 
@@ -235,4 +276,4 @@ VisionGaia Technology builds enterprise-grade security and AI tooling — engine
 
 ---
 
-*Version 1.0.0 — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
+*Version 3.0 (DUAL STACK SUPREME) — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
