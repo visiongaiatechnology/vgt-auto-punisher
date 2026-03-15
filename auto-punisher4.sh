@@ -1,24 +1,22 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.1.3 - BETA)
-# STATUS: DIAMANT VGT SUPREME (DPI & SANITIZATION RESTORED)
-# ARCHITECTURE: Nftables Netlink API + Passive Discovery
-# UPDATE: Re-Injektion der TCP-Sanitization (MSS, Invalid States, XMAS-Scans)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.4.1 - INTELLIGENT DEFAULT)
+# STATUS: DIAMANT VGT SUPREME (MAXIMAL-RESILIENZ)
+# ARCHITECTURE: Passive Log-Sensing + DPI Sanitization
+# UPDATE: "Enter-to-Protect-All" Logik für die Port-Überwachung integriert.
 # ==============================================================================
 
 set -Eeuo pipefail
 
 # --- VGT PARAMETER ---
-readonly IP_THRESHOLD=15
-readonly RANGE_THRESHOLD_V4=30
-readonly RANGE_THRESHOLD_V6=40
-readonly BAN_TIMEOUT="24h"
-readonly LOG_PREFIX="[VGT-STRIKE]"
-readonly NFT_STATE_FILE="/etc/vgt_punisher.nft"
-readonly SYSTEMD_UNIT="/etc/systemd/system/vgt-punisher.service"
+readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban
+readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
+readonly LOG_PREFIX="[VGT_STRIKE]"
+readonly IPSET_V4="VGT_BANNED_V4"
+readonly IPSET_V6="VGT_BANNED_V6"
 
-readonly WHITELIST_V4="{ 127.0.0.1, 0.0.0.0/8 }"
-readonly WHITELIST_V6="{ ::1, fe80::/10 }"
+# --- VGT MASTER WHITELIST ---
+readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
 
 # --- VGT HIGH-END UI DESIGN (ANSI) ---
 readonly C_RED='\033[38;2;255;51;102m'
@@ -34,37 +32,35 @@ readonly TUI_HOME='\033[H'
 readonly TUI_CLEAR_LINE='\033[K'
 
 # ==============================================================================
-# 1. PORT DISCOVERY & SURGICAL SETUP
+# 1. INITIALISIERUNG & V4-TECH INJEKTION
 # ==============================================================================
-function setup_system() {
+function init_defense() {
     if [[ $EUID -ne 0 ]]; then 
-        echo -e "${C_RED}[FATAL] VGT-Protokoll erfordert Root-Privilegien.${C_RESET}" >&2
+        echo -e "${C_RED}[FATAL] Root erforderlich.${C_RESET}" >&2
         exit 1
     fi
 
     clear
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
-    echo -e "${C_CYAN}   VGT APEX PASSIVE DISCOVERY (DPI ENABLED)${C_RESET}"
+    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.4.1)${C_RESET}"
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
 
-    # --- PORT SCANNING ---
+    # --- PORT DISCOVERY ---
     echo -e "${C_GRAY}[VGT] Scanne aktive System-Ports...${C_RESET}"
     local open_ports
-    open_ports=$(ss -tlnp | grep LISTEN | awk '{print $4}' | awk -F: '{print $NF}' | sort -un | tr '\n' ' ' | xargs)
+    open_ports=$(ss -tlnp | grep LISTEN | awk '{print $4}' | awk -F: '{print $NF}' | sort -un | tr '\n' ',' | sed 's/,$//' || echo "22,80,443")
     
-    echo -e "${C_GREEN}[INFO] Aktuell offene Ports auf diesem Server:${C_RESET}"
-    echo -e "${C_YELLOW}$open_ports${C_RESET}"
+    echo -e "${C_GREEN}[INFO] Offene Ports erkannt: $open_ports${C_RESET}"
     echo ""
-    echo -e "${C_CYAN}[?] Welche Ports soll der Punisher BEWACHEN?${C_RESET}"
-    echo -e "${C_GRAY}(Standard: 22, 80, 443)${C_RESET}"
-    read -p "Monitor-Ports (kommagetrennt): " USER_PORTS
-    USER_PORTS=${USER_PORTS:-"22,80,443"}
+    echo -e "${C_CYAN}[?] Welche Ports soll der Punisher AKTIV ÜBERWACHEN?${C_RESET}"
+    echo -e "${C_GRAY}(Enter drücken, um ALLE erkannten Ports [$open_ports] zu schützen)${C_RESET}"
+    read -p "Monitor-Ports: " USER_INPUT
     
-    readonly MONITOR_PORT_SET="{ $(echo "$USER_PORTS" | sed 's/,/, /g') }"
+    # VGT INTELLIGENT DEFAULT: Wenn leer, nimm alle erkannten Ports
+    USER_PORTS=${USER_INPUT:-"$open_ports"}
 
-    echo -e "${C_GRAY}[VGT] Initialisiere chirurgische Kernel-Injektion...${C_RESET}"
-
-    # VGT APEX TCP-Stack Hardening
+    # --- KERNEL HARDENING ---
+    echo -e "${C_GRAY}[VGT] Optimiere TCP-Stack (BBR/FQ/Syncookies)...${C_RESET}"
     cat <<EOF > /etc/sysctl.d/99-vgt-punisher.conf
 net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_max_syn_backlog = 65536
@@ -74,162 +70,108 @@ net.core.default_qdisc = fq
 EOF
     sysctl -q -p /etc/sysctl.d/99-vgt-punisher.conf
 
-    apply_kernel_engine "$MONITOR_PORT_SET"
-    
-    umask 0177
-    nft list table inet vgt_punisher > "$NFT_STATE_FILE"
-    echo -e "${C_CYAN}[+] VGT-Matrix inkl. DPI-Schutz persistiert.${C_RESET}"
+    # --- IPSET SETUP ---
+    ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 -exist
+    ipset create "$IPSET_V6" hash:net family inet6 maxelem 1000000 -exist 2>/dev/null || true
 
-    # Systemd Service
-    cat <<EOF > "$SYSTEMD_UNIT"
-[Unit]
-Description=VGT Auto-Punisher Kernel Defense
-After=network.target
+    # --- FIREWALL INJEKTION ---
+    echo -e "${C_GRAY}[VGT] Injektiere Layer-4 Schilde & DPI Engine...${C_RESET}"
 
-[Service]
-Type=oneshot
-ExecStart=/usr/sbin/nft -f $NFT_STATE_FILE
-RemainAfterExit=yes
-CapabilityBoundingSet=CAP_NET_ADMIN
-ProtectSystem=strict
-PrivateTmp=yes
+    # Ingress Drop für gebannte IPs
+    for cmd in "iptables" "ip6tables"; do
+        set_name=$([[ "$cmd" == "iptables" ]] && echo "$IPSET_V4" || echo "$IPSET_V6")
+        if ! $cmd -C INPUT -m set --match-set "$set_name" src -j DROP >/dev/null 2>&1; then
+            $cmd -I INPUT 1 -m set --match-set "$set_name" src -j DROP
+        fi
+    done
 
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    systemctl daemon-reload
-    systemctl enable "$SYSTEMD_UNIT" >/dev/null 2>&1
-    echo -e "${C_GREEN}[VGT] V4.1.3 DIAMANT aktiv. DPI & Monitoring gestartet.${C_RESET}"
+    # DPI Sanitization
+    if ! iptables -C INPUT -m state --state INVALID -j DROP >/dev/null 2>&1; then
+        iptables -I INPUT 2 -m state --state INVALID -j DROP
+        iptables -I INPUT 3 -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP 
+        iptables -I INPUT 4 -p tcp --tcp-flags ALL NONE -j DROP        
+        iptables -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
+    fi
+
+    # Scoped Anomaly Sensor
+    iptables -D INPUT -p tcp -m multiport --dports "$USER_PORTS" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null || true
+    iptables -I INPUT 6 -p tcp -m multiport --dports "$USER_PORTS" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX "
+
+    echo -e "${C_GREEN}[VGT] Schilde stehen. Überwachung für: $USER_PORTS${C_RESET}"
+    sleep 1
 }
 
 # ==============================================================================
-# 2. THE SURGICAL ENGINE (DPI INTEGRATED)
-# ==============================================================================
-function apply_kernel_engine() {
-    local monitor_ports=$1
-    
-    nft -f - <<EOF
-add table inet vgt_punisher
-flush table inet vgt_punisher
-
-table inet vgt_punisher {
-    set denylist_v4 { type ipv4_addr; flags dynamic, timeout; timeout $BAN_TIMEOUT; size 100000; }
-    set denylist_v6 { type ipv6_addr; flags dynamic, timeout; timeout $BAN_TIMEOUT; size 100000; }
-    set denylist_range_v4 { type ipv4_addr; flags dynamic, timeout; timeout $BAN_TIMEOUT; size 50000; }
-    set denylist_range_v6 { type ipv6_addr; flags dynamic, timeout; timeout $BAN_TIMEOUT; size 50000; }
-
-    chain log_drop { limit rate 1/second burst 1 packets log prefix "$LOG_PREFIX [PUNISH] "; counter drop; }
-
-    # --- LAYER 1: DER FILTER & DPI (HOOK PREROUTING) ---
-    chain filter_ingress {
-        type filter hook prerouting priority -150; policy accept;
-        
-        # [REINSTATED] DPI & SANITIZATION ENGINE
-        ct state invalid counter drop
-        tcp flags & (syn|fin) == (syn|fin) counter drop
-        tcp flags syn tcp option maxseg size < 536 counter drop
-
-        # Blockade bekannter Akteure
-        ip saddr & 255.255.255.0 @denylist_range_v4 counter drop
-        ip6 saddr & ffff:ffff:ffff:ffff:: @denylist_range_v6 counter drop
-        ip saddr @denylist_v4 counter drop
-        ip6 saddr @denylist_v6 counter drop
-    }
-
-    # --- LAYER 2: DER DETEKTOR (HOOK INPUT) ---
-    chain detector {
-        type filter hook input priority 0; policy accept;
-
-        ip saddr { 127.0.0.1, 0.0.0.0/8 } accept
-        ip6 saddr { ::1, fe80::/10 } accept
-
-        # Behavioral Analysis
-        tcp dport $monitor_ports tcp flags syn ct state { new, untracked } limit rate over $RANGE_THRESHOLD_V4/minute update @denylist_range_v4 { ip saddr & 255.255.255.0 } goto log_drop
-        tcp dport $monitor_ports tcp flags syn ct state { new, untracked } limit rate over $IP_THRESHOLD/minute update @denylist_v4 { ip saddr } goto log_drop
-    }
-}
-EOF
-}
-
-# ==============================================================================
-# 3. NEON MATRIX (TUI)
+# 2. DIE JAGD-LOGIK (V3 ARCHITECTURE + V4 UI)
 # ==============================================================================
 function cleanup_ui() {
     echo -ne "${TUI_RMCUP}"
     tput cnorm
-    [[ -n "${DMESG_PID:-}" ]] && kill "$DMESG_PID" 2>/dev/null || true
-    [[ -n "${STATS_PID:-}" ]] && kill "$STATS_PID" 2>/dev/null || true
-    [[ -n "${DMESG_BUFFER:-}" ]] && rm -f "$DMESG_BUFFER"
-    [[ -n "${STATS_BUFFER:-}" ]] && rm -f "$STATS_BUFFER"
+    [[ -n "${HEARTBEAT_PID:-}" ]] && kill "$HEARTBEAT_PID" 2>/dev/null || true
     exit 0
 }
 
-function show_ui() {
+function start_hunt() {
     echo -ne "${TUI_SMCUP}"
     tput civis
     trap cleanup_ui SIGINT SIGTERM EXIT
-    
-    DMESG_BUFFER=$(mktemp -p /dev/shm vgt_dmesg.XXXXXX)
-    dmesg -w | grep --line-buffered "$LOG_PREFIX" > "$DMESG_BUFFER" &
-    DMESG_PID=$!
-    
-    STATS_BUFFER=$(mktemp -p /dev/shm vgt_stats.XXXXXX)
-    echo "0 0 0" > "$STATS_BUFFER"
-    
-    (
-        while true; do
-            local stats
-            stats=$(nft -a list table inet vgt_punisher 2>/dev/null || echo "")
-            local v4_drops=$(echo "$stats" | awk '/ip saddr @denylist_v4/ {for(i=1;i<=NF;i++) if($i=="packets") print $(i+1)}' | head -n 1)
-            local r4_drops=$(echo "$stats" | awk '/denylist_range_v4/ {for(i=1;i<=NF;i++) if($i=="packets") print $(i+1)}' | head -n 1)
-            local v6_drops=$(echo "$stats" | awk '/ip6 saddr @denylist_v6/ {for(i=1;i<=NF;i++) if($i=="packets") print $(i+1)}' | head -n 1)
-            echo "${v4_drops:-0} ${r4_drops:-0} ${v6_drops:-0}" > "${STATS_BUFFER}.tmp"
-            mv "${STATS_BUFFER}.tmp" "$STATS_BUFFER"
-            sleep 2
-        done
-    ) &
-    STATS_PID=$!
 
-    while true; do
-        echo -ne "${TUI_HOME}"
-        echo -e "${C_PURPLE}██████████████████████████████████████████████████████████████████████████████${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "${C_CYAN}   VGT AUTO-PUNISHER V4.1.3 - APEX PARADIGM (DPI RESTORED)                 ${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "${C_PURPLE}██████████████████████████████████████████████████████████████████████████████${C_RESET}${TUI_CLEAR_LINE}"
-        
-        read -r V4_COUNT V4_NET_COUNT V6_COUNT < "$STATS_BUFFER"
-        
-        echo -e "${TUI_CLEAR_LINE}"
-        echo -e "${C_GRAY}⯈ KERNEL DROP METRICS (PACKETS ANNIHILATED)${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "  ${C_RED}IPv4 DROPS (SINGLE IP):    ${V4_COUNT:-0}${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "  ${C_YELLOW}IPv4 DROPS (SUBNET):       ${V4_NET_COUNT:-0}${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "  ${C_CYAN}IPv6 DROPS (SINGLE IP):    ${V6_COUNT:-0}${C_RESET}${TUI_CLEAR_LINE}"
+    ( while true; do sleep 45; printf "\033[s\033[u"; done ) &
+    HEARTBEAT_PID=$!
 
-        echo -e "${TUI_CLEAR_LINE}"
-        echo -e "${C_PURPLE}──────────────────────────────────────────────────────────────────────────────${C_RESET}${TUI_CLEAR_LINE}"
-        echo -e "${C_CYAN}⯈ RECENT KERNEL STRIKES (RATE-LIMITED)${C_RESET}${TUI_CLEAR_LINE}"
-        
-        local STRIKES
-        STRIKES=$(tail -n 8 "$DMESG_BUFFER" | awk -v cyan="${C_CYAN}" -v reset="${C_RESET}" -v clr="${TUI_CLEAR_LINE}" '
-        {
-            idx = index($0, "VGT-STRIKE]"); 
-            if(idx > 0) print "  " cyan substr($0, idx) reset clr
-        }')
+    journalctl -kf --grep="$LOG_PREFIX" | awk -v ip_limit="$IP_THRESHOLD" -v range_limit="$RANGE_THRESHOLD" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" '
+        BEGIN {
+            c_res = "\033[0m"; c_gry = "\033[38;2;128;128;128m"; c_cyn = "\033[38;2;0;204;255m"; 
+            c_ylw = "\033[38;2;255;204;0m"; c_red = "\033[38;2;255;51;102m"; c_pur = "\033[38;2;153;51;255m";
+            
+            print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
+            print c_cyn "   VGT AUTO-PUNISHER V4.4.1 - HYBRID SUPREME (INTELLIGENT DEFAULT)          " c_res;
+            print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
+            print c_gry "ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE" c_res;
+            print c_gry "------------------------------------------------------------------------------" c_res;
+        }
+        /SRC=/ {
+            match($0, /SRC=([0-9a-fA-F:.]+)/, arr);
+            ip = arr[1];
+            if (ip ~ /^[0:]+$/) ip = "::";
 
-        if [[ -n "$STRIKES" ]]; then echo -e "$STRIKES"; else echo -e "  ${C_GRAY}DPI & Verhaltensanalyse aktiv. Warte auf Anomalien...${C_RESET}${TUI_CLEAR_LINE}"; fi
-        echo -ne "\033[J" 
-        sleep 1
-    done
+            if (index(" " wl " ", " " ip " ") > 0 || ip == "" || tolower(ip) ~ /^fe80:/) next;
+
+            zeit = $1 " " $2 " " $3;
+
+            if (ip ~ /:/) {
+                is_v6 = 1; target_set = set_v6; range = "IPv6_STRIKE"; save_cmd = "ip6tables-save > /etc/iptables/rules.v6";
+            } else {
+                is_v6 = 0; target_set = set_v4; save_cmd = "iptables-save > /etc/iptables/rules.v4";
+                split(ip, octets, "."); range = octets[1] "." octets[2] "." octets[3] ".0/24";
+            }
+
+            ip_count[ip]++;
+            if (!is_v6) range_count[range]++;
+
+            h_col = (ip_count[ip] >= (ip_limit - 3)) ? c_red : c_ylw;
+            r_col = (!is_v6 && range_count[range] >= (range_limit - 5)) ? c_red : c_ylw;
+
+            printf "%s%-19s%s | %s%-39s%s | %s%4d%s | %s%4d%s\n", c_gry, zeit, c_res, c_cyn, ip, c_res, h_col, ip_count[ip], c_res, r_col, (is_v6 ? 0 : range_count[range]), c_res;
+
+            if (ip_count[ip] == ip_limit) {
+                print "\n" c_red "[!!!] TERMINIERT: IP " ip " hingerichtet." c_res;
+                system("ipset add " target_set " " ip " -exist");
+                system(save_cmd " 2>/dev/null || true");
+            }
+
+            if (!is_v6 && range_count[range] == range_limit) {
+                print "\n" c_red "[!!!] INFRA-SCHLAG: Range " range " terminiert." c_res;
+                system("ipset add " target_set " " range " -exist");
+                system(save_cmd " 2>/dev/null || true");
+            }
+            fflush();
+        }
+    '
 }
 
-case "${1:-}" in
-    --setup) setup_system ;;
-    --ui) show_ui ;;
-    *)
-        echo -e "${C_YELLOW}VGT Auto-Punisher V4.1.3 (DIAMANT SUPREME)${C_RESET}"
-        echo "Nutzung:"
-        echo "  $0 --setup        (Interaktives Setup & Port-Discovery)"
-        echo "  $0 --ui           (Startet High-End Monitor)"
-        exit 1
-        ;;
-esac
+# ==============================================================================
+# MAIN ENTRY
+# ==============================================================================
+init_defense
+start_hunt
