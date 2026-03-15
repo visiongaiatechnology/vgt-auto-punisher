@@ -38,7 +38,7 @@
 ### ✅ V4.1.3 Has a Built-In Safety Net
 
 V4.1.3 solves this with **Passive Port Discovery**. On `--setup`, the script automatically scans your server for open ports and asks you to confirm which ones to protect:
-
+> ### ⚠️ PLEASE SET YOUR OWN IPv4 AND IPv6 AS WHITELIST!! ⚠️
 ```
 ==========================================================
    VGT APEX PASSIVE DISCOVERY (DPI ENABLED)
