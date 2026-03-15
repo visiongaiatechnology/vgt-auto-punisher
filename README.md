@@ -2,284 +2,261 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Kernel](https://img.shields.io/badge/Layer-Kernel_Level-red?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-4.1.3_BETA-orange?style=for-the-badge)](#)
+[![Engine](https://img.shields.io/badge/Engine-nftables-red?style=for-the-badge)](#)
+[![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
+[![DPI](https://img.shields.io/badge/DPI-ENABLED-purple?style=for-the-badge)](#)
 [![Status](https://img.shields.io/badge/Status-DIAMANT-purple?style=for-the-badge)](#)
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
 > *"Don't rate-limit attackers. Terminate them."*
+> *AGPLv3 — For Humans, not for SaaS Corporations.*
 
 ---
 
-## 🆕 V3.1 — SOVEREIGN EDITION
+## 🚧 V4 BETA — Active Development
 
-[![Version](https://img.shields.io/badge/Version-3.1-brightgreen?style=for-the-badge)](#)
-[![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
-[![Neon UI](https://img.shields.io/badge/UI-NEON_MATRIX-purple?style=for-the-badge)](#)
-[![AGPLv3](https://img.shields.io/badge/Licence-AGPLv3-green?style=for-the-badge)](#)
+> **V4.1.3 is a BETA release.** The core engine is stable and production-tested. Additional features, hardening layers, and documentation are actively being developed. Expect updates over the coming days.
+>
+> V3.x remains available in the repository for those who prefer the stable iptables-based variant.
 
-**What's new in V3.1:**
-
-- **AGPLv3 License** — *"For Humans, not for SaaS Corporations."* License statement displayed directly in the running tool.
-- **Full IPv6 Support** — Dual-Stack monitoring with separate `ipset hash:net family inet6` + `ip6tables` integration. IPv4 and IPv6 attacks detected and terminated independently.
-- **Neon Matrix UI** — Color-coded ANSI terminal dashboard. IPs approaching the ban threshold turn red in real-time.
-- **Dynamic Whitelist** — Configurable at the top of the script. Includes `127.0.0.1`, `::1`, `fe80::/10` (Link-Local) out of the box.
-- **IPv6 Infrastructure Strike deliberately disabled** — IPv6 range bans are omitted by design. ISPs assign dynamic /48 and /64 blocks — a range ban would hit legitimate users. Single-IP termination only for IPv6.
-- **Graceful Exit** — `CTRL+C` kills the heartbeat daemon cleanly. Your ipset bans remain active after exit.
+**Planned for upcoming releases:**
+- Global Threat Feed integration (Feodo, Spamhaus, Emerging Threats)
+- Extended whitelist management via CLI
+- `--status` flag for quick health check
+- Automated test suite
 
 ---
 
-## 📦 Two Variants — Choose Your Weapon
+## 🔴 CRITICAL — READ BEFORE RUNNING `--setup`
 
-This repository contains two variants of the Auto-Punisher. Both protect your server — they differ in backend technology and privilege model.
+> ### ⚠️ YOU WILL LOSE SERVER ACCESS IF YOU SKIP THIS ⚠️
 
-| | **auto-punisher.sh** | **vgt_punisher_titan.sh** |
+`--setup` flushes the VGT table and rebuilds the entire ruleset. **All existing rules in the `vgt_punisher` table are replaced.** If you have not configured your ports correctly, you may lose SSH access.
+
+### ✅ V4.1.3 Has a Built-In Safety Net
+
+V4.1.3 solves this with **Passive Port Discovery**. On `--setup`, the script automatically scans your server for open ports and asks you to confirm which ones to protect:
+
+```
+==========================================================
+   VGT APEX PASSIVE DISCOVERY (DPI ENABLED)
+==========================================================
+[VGT] Scanne aktive System-Ports...
+[INFO] Aktuell offene Ports auf diesem Server: 22 80 443 3306
+
+[?] Welche Ports soll der Punisher BEWACHEN?
+(Standard: 22, 80, 443)
+Monitor-Ports (kommagetrennt):
+```
+
+Press **Enter** for the default (22, 80, 443) or enter your custom list. Selected ports are always accessible — even during active attacks.
+
+The ruleset also permanently includes:
+```nftables
+ct state established,related accept  # Active connections never dropped
+ip saddr { 127.0.0.1, 0.0.0.0/8 } accept  # Localhost always allowed
+```
+
+---
+
+### 📋 Common Port Reference
+
+| Port | Service | Include? |
 |---|---|---|
-| **Backend** | iptables + ipset | nftables (modern kernel) |
-| **Privileges** | Full root | Dedicated restricted user |
-| **Setup** | Zero config — runs immediately | One-time `--setup` required |
-| **Target** | Maximum compatibility | Hardened production environments |
-| **Recommended for** | Quick deploy, older distros | Security-conscious setups |
+| `22` | SSH | ✅ Always |
+| `80` | HTTP | ✅ Webserver |
+| `443` | HTTPS | ✅ Webserver |
+| `2222` | Custom SSH | ⚠️ If you moved SSH |
+| `8080` | HTTP Alt / Admin | ⚠️ If you use it |
+| `8443` | HTTPS Alt | ⚠️ If you use it |
+| `3306` | MySQL / MariaDB | ⚠️ Only if remote access needed |
+| `5432` | PostgreSQL | ⚠️ Only if remote access needed |
+| `25` | SMTP | ⚠️ Mail server only |
+| `587` | SMTP Submission | ⚠️ Mail server only |
+| `993` | IMAPS | ⚠️ Mail server only |
+| `21` | FTP | ⚠️ Legacy — prefer SFTP |
+
+> **Rule of thumb:** Only open ports you actively use. Every open port is an attack surface.
 
 ---
 
-## ⚔️ Variant A — auto-punisher.sh (Classic / Maximum Compatibility)
+### 🆘 Already Locked Out?
 
-Zero configuration. Runs on any Linux system with iptables. Recommended for quick deployment and older distributions.
+Use your hosting provider's **emergency web console** (Strato KVM, Hetzner Console, netcup KVM, etc.) and run:
 
 ```bash
-chmod +x auto-punisher.sh
-sudo ./auto-punisher.sh
+# Option A — Flush only the VGT table
+nft flush table inet vgt_punisher
+
+# Option B — Delete state file and reboot
+rm /etc/vgt_punisher.nft && reboot
 ```
 
 ---
 
-## 🛡️ Variant B — vgt_punisher_titan.sh (nftables / Hardened)
+## 🆕 What's New in V4.1.3
 
-The hardened variant for production environments. Uses nftables instead of iptables and runs under a dedicated restricted system user with minimal privileges — not full root.
+| Feature | V3.x | V4.1.3 |
+|---|---|---|
+| **Engine** | iptables + ipset | nftables (native kernel) |
+| **Table flush** | `flush ruleset` (ALL rules) | `flush table inet vgt_punisher` (VGT only) |
+| **Port Setup** | Manual whitelist edit | Passive Discovery + interactive prompt |
+| **DPI** | None | MSS anomaly, invalid state, XMAS/NULL scan detection |
+| **IPv6** | Optional | Full Dual-Stack (IP + /64 subnet bans) |
+| **Logging** | Coupled to drops | Rate-decoupled (1/sec max — kernel-safe) |
+| **Persistence** | iptables-save | Systemd oneshot + nft statefile (chmod 0600) |
+| **TCP Hardening** | Basic | BBR congestion control, syncookies, rp_filter |
+| **TUI** | Basic ANSI | Alternate screen buffer, zero flicker, /dev/shm |
+| **Memory Safety** | AWK array reset | nftables set size limits (OOM-safe) |
 
-### Important: One-Time Setup Required
+---
 
-**Step 1 — Run setup** (creates the dedicated user and configures nftables):
+## 🏛️ Architecture
+
+V4.1.3 operates on two kernel hooks:
+
+```
+Packet arrives
+    ↓
+PREROUTING (priority -150) — filter_ingress chain
+    → DPI: invalid state, XMAS scan, MSS anomaly → drop
+    → denylist_range check → counter drop   ← subnet bans
+    → denylist check → counter drop         ← IP bans
+    ↓
+INPUT (priority 0) — detector chain
+    → Whitelist bypass → accept
+    → Rate heuristic on monitored ports
+    → Threshold exceeded → update denylist → log_drop chain
+    ↓
+log_drop chain
+    → Drop at line-rate (O(1))
+    → Log max 1x/second (kernel printk safe)
+```
+
+**Key principle:** Banned IPs are dropped at PREROUTING — before routing, before conntrack, before userspace. Zero overhead for banned traffic.
+
+---
+
+## 🛡️ Deep Packet Inspection
+
+Every packet passes through DPI at PREROUTING before reaching the behavioral detector:
+
+```nftables
+ct state invalid counter drop                              # Invalid connection state
+tcp flags & (syn|fin) == (syn|fin) counter drop           # Malformed SYN+FIN
+tcp flags syn tcp option maxseg size < 536 counter drop   # MSS anomaly / fingerprinting
+```
+
+This eliminates NULL scans, XMAS scans, and MSS-based OS fingerprinting attacks with zero behavioral analysis required.
+
+---
+
+## ⚙️ Kernel TCP Hardening
+
+Applied automatically during `--setup`:
+
 ```bash
-sudo ./vgt_punisher_titan.sh --setup
-```
-
-**Step 2 — Transfer ownership to the new user:**
-```bash
-chown root:vgt-punisher vgt_punisher_titan.sh
-chmod 550 vgt_punisher_titan.sh
-```
-
-**Step 3 — Start the daemon as the restricted user:**
-```bash
-sudo -u vgt-punisher ./vgt_punisher_titan.sh
-```
-
-### Why nftables?
-- nftables is the modern replacement for iptables on Linux kernels 3.13+
-- More efficient ruleset evaluation
-- Atomic rule updates — no race conditions during rule changes
-- Native IPv4/IPv6 dual-stack in a single ruleset
-
-### Why a restricted user?
-Running security tooling as full root is a risk. The Titan variant uses Linux Capabilities (`CAP_NET_ADMIN`, `CAP_NET_RAW`) and a dedicated `vgt-punisher` system user with sudo restricted to exactly the commands needed. If the process is ever compromised, the blast radius is minimal.
-
-```
-============================================================================
-   VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE (V3.0)
-   Status: DUAL STACK SUPREME (IPv4 & IPv6 Monitoring)
-============================================================================
-   IP-Limit: 15 | Range-Limit: 30
-   Whitelist: 127.0.0.1 ::1 0.0.0.0 :: fe80::/10
-   Features:  Anti-Freeze Heartbeat, Neon-Matrix, Self-Healing Sensors
-----------------------------------------------------------------------------
-ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE
-----------------------------------------------------------------------------
-Mar 15 09:12:44     | 185.220.101.47                          |    1 |    3
-Mar 15 09:12:45     | 2a0e:97c0:4d0::1                        |    1 |    0
-...
-[!!!] PUNISH: IP 185.220.101.47 terminiert (Limit erreicht).
-----------------------------------------------------------------------------
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (Limit erreicht).
-----------------------------------------------------------------------------
+net.ipv4.tcp_syncookies = 1          # SYN flood protection
+net.ipv4.tcp_max_syn_backlog = 65536  # Large SYN queue
+net.core.netdev_max_backlog = 65536   # NIC receive buffer
+net.ipv4.tcp_congestion_control = bbr # Google BBR (throughput + resilience)
+net.core.default_qdisc = fq           # Fair queuing
 ```
 
 ---
 
-**VGT Auto-Punisher** is a zero-dependency, kernel-level behavioral Intrusion Detection System for Linux servers. It streams live kernel events via `journalctl`, analyzes behavioral patterns in real-time via `awk`, and executes permanent IP bans directly in the kernel via `ipset` + `iptables`/`ip6tables` — with zero application-layer overhead.
-
-No Python. No Node. No frameworks. Pure Bash + kernel primitives.
-
----
-
-## 🚨 The Problem With Standard Rate Limiters
-
-Most rate limiters operate at the application layer — Nginx, Apache, PHP. By the time they trigger, the attack has already consumed server resources.
-
-| Standard Rate Limiters | VGT Auto-Punisher |
-|---|---|
-| ❌ Application layer — attack reaches PHP | ✅ Kernel layer — attack never reaches the app |
-| ❌ Temporary blocks — attacker retries | ✅ Permanent ipset ban — mathematically blocked |
-| ❌ Per-IP only — distributed attacks bypass | ✅ Surgical IP strike + /24 Infrastructure strike |
-| ❌ No behavioral analysis | ✅ Real-time hit counting per IP and subnet |
-| ❌ Manual setup required | ✅ Self-healing init — deploys itself on first run |
-| ❌ Silent — no visibility | ✅ Live terminal dashboard with timestamps |
-
----
-
-## ⚡ How It Works
+## 🖥️ TUI Matrix Dashboard
 
 ```
-Every TCP SYN packet
-    → iptables LOG rule writes to kernel journal
-    → journalctl streams live to Auto-Punisher
-    → awk counts hits per IP and per /24 subnet
-    → Threshold reached → ipset ban → kernel DROP
-    → iptables-save → permanent across reboots
+████████████████████████████████████████████████████████████████████████████████
+   VGT AUTO-PUNISHER V4.1.3 - APEX PARADIGM (DPI RESTORED)
+████████████████████████████████████████████████████████████████████████████████
+
+⯈ KERNEL DROP METRICS (PACKETS ANNIHILATED)
+  IPv4 DROPS (SINGLE IP):    48,291
+  IPv4 DROPS (SUBNET):       12,847
+  IPv6 DROPS (SINGLE IP):    3,104
+
+──────────────────────────────────────────────────────────────────────────────
+⯈ RECENT KERNEL STRIKES (RATE-LIMITED)
+  [VGT-STRIKE] [PUNISH] IN=eth0 SRC=185.220.101.47 ...
+  [VGT-STRIKE] [PUNISH] IN=eth0 SRC=3.134.100.0 ...
 ```
 
-Two strike modes:
-
-**Surgical Strike** — Single IP exceeds threshold → that IP is permanently banned.
-
-**Infrastructure Strike** — Entire /24 subnet exceeds threshold → the full range is banned. Eliminates coordinated attacks from the same provider infrastructure.
-
----
-
-## 🛡️ Self-Healing Initialization
-
-On first run, Auto-Punisher automatically deploys its own defense infrastructure:
-
-```
-[VGT] Initialisiere System-Integritäts-Check...
-[+] Erstelle IPSET-Tabelle: VGT_AUTO_BANNED
-[+] Verknüpfe IPSET mit Firewall (Position 1)...
-[+] Installiere Anomalie-Sensor (Log-Regel)...
-[VGT] System-Integrität bestätigt. Schilde sind aktiv.
-```
-
-No manual iptables configuration required. No manual ipset setup. It installs itself.
-
----
-
-## 📊 Live Terminal Dashboard
-
-```
-==========================================================
-   VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE
-   Status: DIAMANT VGT SUPREME (READY FOR GITHUB)
-==========================================================
-   IP-Limit: 30 | Range-Limit: 60
-   Sicherheit: Hard-Whitelist (127.0.0.1) ist AKTIV
-----------------------------------------------------------
-ZEITSTEMPEL         | QUELL-IP        | HITS | RANGE-HITS
-----------------------------------------------------------
-Mar 15 09:12:44     | 185.220.101.47  |    1 |    3
-Mar 15 09:12:44     | 185.220.101.52  |    1 |    4
-Mar 15 09:12:45     | 185.220.101.47  |    2 |    5
-...
-[!!!] PUNISH: IP 185.220.101.47 terminiert (Limit 30 erreicht).
-----------------------------------------------------------
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (Limit 60 erreicht).
-----------------------------------------------------------
-```
+- **Alternate screen buffer** — clean exit, no terminal pollution
+- **Zero flicker** — cursor positioned at home, lines cleared individually
+- **`/dev/shm` buffers** — RAM-based temp files, no disk I/O
+- **Rate-limited event stream** — dmesg direct read, immune to log floods
+- **Background stats worker** — nft counters polled every 2 seconds
 
 ---
 
 ## 🚀 Installation
 
 ### Requirements
-- Linux (Debian / Ubuntu / CentOS)
-- Root access
-- `ipset`, `iptables`, `journalctl` (auto-installed if missing)
+
+| Requirement | Minimum | Notes |
+|---|---|---|
+| Linux Kernel | 5.2+ | nftables dynamic sets with timeout |
+| nftables | Any recent | `apt install nftables` |
+| iproute2 | Any | `ss` command for port discovery |
+| systemd | Any | For boot persistence |
 
 ### Setup
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/visiongaiatechnology/vgt-auto-punisher.git
 cd vgt-auto-punisher
 
 # Make executable
 chmod +x auto-punisher.sh
 
-# Run as root
-sudo ./auto-punisher.sh
+# One-time setup — interactive, safe
+sudo ./auto-punisher.sh --setup
+
+# Start TUI dashboard
+sudo ./auto-punisher.sh --ui
 ```
 
-That's it. Auto-Punisher handles the rest.
+### What `--setup` Does — Step by Step
 
----
-
-## ⚙️ Configuration
-
-All settings are at the top of the script:
-
-```bash
-IPSET_NAME="VGT_AUTO_BANNED"   # Name of the ipset blocklist
-IP_THRESHOLD=30                 # Hits until single IP is banned
-RANGE_THRESHOLD=60              # Hits until entire /24 subnet is banned
-LOG_PREFIX="[VGT_ANOMALY]"      # Must match the iptables LOG prefix
 ```
-
-### Adding your own IPs to the whitelist
-
-Edit the Hard Whitelist section in the awk block:
-
-```bash
-# Extend this line with your own IPs
-if (ip == "127.0.0.1" || ip == "0.0.0.0" || ip == "YOUR_IP_HERE") next;
-```
-
-### Running as a background daemon
-
-```bash
-# Run in background with nohup
-nohup sudo ./auto-punisher.sh > /var/log/vgt-punisher.log 2>&1 &
-
-# Or as a systemd service (recommended for production)
-```
-
-### Systemd Service (Recommended)
-
-```ini
-# /etc/systemd/system/vgt-punisher.service
-[Unit]
-Description=VGT Auto-Punisher IDS
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/path/to/auto-punisher.sh
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-systemctl enable vgt-punisher
-systemctl start vgt-punisher
+1. Scans open ports via ss -tlnp
+2. Asks which ports to always allow
+3. Applies kernel TCP hardening (sysctl)
+4. Builds nftables ruleset atomically
+5. Persists to /etc/vgt_punisher.nft (chmod 0600)
+6. Installs sandboxed systemd service (boot persistence)
+7. Enables service — bans survive reboots
 ```
 
 ---
 
-## 🔍 Managing the Blocklist
+## 🔍 Managing the Ruleset
 
 ```bash
-# View all currently banned IPs
-ipset list VGT_AUTO_BANNED
+# View full ruleset with counters
+sudo nft -a list table inet vgt_punisher
 
-# Remove a specific IP (emergency unban)
-ipset del VGT_AUTO_BANNED 1.2.3.4
+# View banned IPs
+sudo nft list set inet vgt_punisher denylist_v4
+sudo nft list set inet vgt_punisher denylist_v6
 
-# Clear the entire blocklist
-ipset flush VGT_AUTO_BANNED
+# View banned subnets
+sudo nft list set inet vgt_punisher denylist_range_v4
 
-# Check how many IPs are banned
-ipset list VGT_AUTO_BANNED | grep -c "^[0-9]"
+# Remove a specific ban
+sudo nft delete element inet vgt_punisher denylist_v4 { 1.2.3.4 }
+
+# Flush all bans (keeps ruleset active)
+sudo nft flush set inet vgt_punisher denylist_v4
+sudo nft flush set inet vgt_punisher denylist_range_v4
+
+# Re-run setup (updates ruleset, keeps bans)
+sudo ./auto-punisher.sh --setup
 ```
 
 ---
@@ -287,26 +264,44 @@ ipset list VGT_AUTO_BANNED | grep -c "^[0-9]"
 ## 📦 System Specs
 
 ```
-DETECTION_LAYER   KERNEL (iptables/ip6tables LOG → journalctl stream)
-ANALYSIS_ENGINE   AWK (zero external dependencies)
-BAN_MECHANISM     ipset hash:net (IPv4) + hash:net family inet6 (IPv6)
-PERSISTENCE       iptables-save → rules.v4 / ip6tables-save → rules.v6
-STRIKE_MODES      Surgical (single IP) + Infrastructure (/24 IPv4 only)
-IP_STACK          Dual-Stack (IPv4 + IPv6)
-WHITELIST         Dynamic — configurable at script top
-OVERHEAD          ~0% CPU idle (event-driven, no polling)
-UI                Neon Matrix (ANSI color-coded, real-time threat levels)
+ENGINE            nftables (kernel-space, zero userspace overhead)
+HOOK_1            PREROUTING priority -150 (DPI + denylist drops)
+HOOK_2            INPUT priority 0 (behavioral rate detection)
+DETECTION         Port-scoped rate heuristics, fully in-kernel
+LOGGING           Rate-decoupled (max 1 log/second, drops at line-rate)
+BAN_MECHANISM     nftables dynamic sets (timeout-based, size-limited)
+BAN_TIMEOUT       24h (configurable)
+PERSISTENCE       Systemd oneshot + /etc/vgt_punisher.nft (chmod 0600)
+TCP_HARDENING     BBR, syncookies, netdev backlog tuning
+DPI               invalid state, XMAS/NULL scans, MSS anomaly
+IPv4_RANGES       /24 bitwise masking (255.255.255.0)
+IPv6_RANGES       /64 bitwise masking (ffff:ffff:ffff:ffff::)
+OVERHEAD          ~0% CPU after setup (pure kernel evaluation)
+STATUS            BETA — actively developed
 ```
 
 ---
 
-## ⚠️ Important Notes
+## 🔗 VGT Linux Defense Ecosystem
 
-- **Run as root** — kernel-level operations require root privileges
-- **Test your own IP first** — make sure your IP is whitelisted before deploying
-- **Aggressive by design** — thresholds are tuned for Tier 4 infrastructure. Lower them for shared hosting.
-- **IPv6 range bans disabled by design** — ISPs assign dynamic /48 and /64 blocks. Range bans would hit legitimate users. IPv6 single-IP bans only.
-- **ipset survives reboots** — bans are persisted via `iptables-save` and `ip6tables-save`
+| Tool | Type | Purpose |
+|---|---|---|
+| ⚔️ **VGT Auto-Punisher** | **Reactive** | Bans attackers the moment they hit |
+| 🌐 **[VGT Global Threat Sync](https://github.com/visiongaiatechnology/vgt-global-threat-sync)** | **Preventive** | Daily feed sync — blocks known threats before arrival |
+| 🔥 **[VGT Windows Firewall Burner](https://github.com/visiongaiatechnology/vgt-windows-burner)** | **Windows** | 280,000+ APT IPs in native Windows Firewall |
+| 🔍 **[VGT Civilian Checker](https://github.com/visiongaiatechnology/Winsyssec)** | **Audit** | Windows security posture assessment |
+
+> **Recommended stack:** Run Global Threat Sync daily via cron for preventive coverage, Auto-Punisher as a persistent service for reactive coverage.
+
+---
+
+## ⚠️ Known Limitations (BETA)
+
+- **Kernel 5.2+ required** — nftables dynamic sets with timeout need a modern kernel. Check with `uname -r`.
+- **nftables replaces iptables** — V4 uses its own isolated table `inet vgt_punisher`. Conflicts with other nftables rulesets are possible. Test in a staging environment first.
+- **IPv6 /64 range bans** — ISPs sometimes assign /64 dynamically. Monitor for false positives.
+- **BBR requires kernel 4.9+** — setup continues gracefully if unavailable.
+- **No `--uninstall` yet** — to remove, run `nft delete table inet vgt_punisher` and `systemctl disable vgt-punisher`.
 
 ---
 
@@ -314,13 +309,13 @@ UI                Neon Matrix (ANSI color-coded, real-time threat levels)
 
 Pull requests are welcome. For major changes, please open an issue first.
 
-Licensed under **AGPLv3** — free to use, modify, and deploy.
+Licensed under **AGPLv3** — *"For Humans, not for SaaS Corporations."*
 
 ---
 
 ## ☕ Support the Project
 
-VGT Auto-Punisher is free. If it saves your server:
+VGT Auto-Punisher is free. If it keeps your server clean:
 
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
@@ -332,8 +327,9 @@ VGT Auto-Punisher is free. If it saves your server:
 
 VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
 
-> *"By the time most firewalls react, the damage is done. Auto-Punisher acts at the speed of the kernel."*
+> *"Tino wanted to throw the script away. V4.1.3 is what happened instead."* 😄
 
 ---
 
-*Version 3.1 (SOVEREIGN EDITION) — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
+*Version 4.1.3 BETA (APEX PARADIGM) — VGT Auto-Punisher // Kernel-Level Behavioral IDS*
+*Active development — more features coming soon.*
