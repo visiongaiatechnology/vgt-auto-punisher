@@ -212,13 +212,13 @@ git clone https://github.com/visiongaiatechnology/vgt-auto-punisher.git
 cd vgt-auto-punisher
 
 # Make executable
-chmod +x auto-punisher.sh
+chmod +x auto-punisher4.sh
 
 # One-time setup — interactive, safe
-sudo ./auto-punisher.sh --setup
+sudo ./auto-punisher4.sh --setup
 
 # Start TUI dashboard
-sudo ./auto-punisher.sh --ui
+sudo ./auto-punisher4.sh --ui
 ```
 
 ### What `--setup` Does — Step by Step
