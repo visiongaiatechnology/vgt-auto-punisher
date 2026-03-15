@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.4.1 - INTELLIGENT DEFAULT)
-# STATUS: DIAMANT VGT SUPREME (MAXIMAL-RESILIENZ)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.4.2 - SOVEREIGN WHITELIST)
+# STATUS: DIAMANT VGT SUPREME (ADMIN IMMUNITY)
 # ARCHITECTURE: Passive Log-Sensing + DPI Sanitization
-# UPDATE: "Enter-to-Protect-All" Logik für die Port-Überwachung integriert.
+# UPDATE: Permanente Immunität für Admin-Range integrierbar.
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -15,7 +15,8 @@ readonly LOG_PREFIX="[VGT_STRIKE]"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
 
-# --- VGT MASTER WHITELIST ---
+# --- VGT MASTER WHITELIST (GEHÄRTET) ---
+# Hier ist deine Range jetzt als diplomatisches Schutzgebiet markiert!
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
 
 # --- VGT HIGH-END UI DESIGN (ANSI) ---
@@ -42,7 +43,7 @@ function init_defense() {
 
     clear
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
-    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.4.1)${C_RESET}"
+    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.4.2)${C_RESET}"
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
 
     # --- PORT DISCOVERY ---
@@ -56,7 +57,6 @@ function init_defense() {
     echo -e "${C_GRAY}(Enter drücken, um ALLE erkannten Ports [$open_ports] zu schützen)${C_RESET}"
     read -p "Monitor-Ports: " USER_INPUT
     
-    # VGT INTELLIGENT DEFAULT: Wenn leer, nimm alle erkannten Ports
     USER_PORTS=${USER_INPUT:-"$open_ports"}
 
     # --- KERNEL HARDENING ---
@@ -85,7 +85,7 @@ EOF
         fi
     done
 
-    # DPI Sanitization
+    # DPI Sanitization (V4 Tech)
     if ! iptables -C INPUT -m state --state INVALID -j DROP >/dev/null 2>&1; then
         iptables -I INPUT 2 -m state --state INVALID -j DROP
         iptables -I INPUT 3 -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP 
@@ -93,11 +93,24 @@ EOF
         iptables -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
     fi
 
-    # Scoped Anomaly Sensor
-    iptables -D INPUT -p tcp -m multiport --dports "$USER_PORTS" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null || true
-    iptables -I INPUT 6 -p tcp -m multiport --dports "$USER_PORTS" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX "
+    # --- VGT FIX: Scoped Anomaly Sensor (Dynamic Chunking) ---
+    # iptables 'multiport' hat ein hartes Limit von 15 Ports. Wir splitten die Liste!
+    IFS=',' read -r -a port_array <<< "$USER_PORTS"
+    chunk_size=14
+    
+    # 1. Alte Logging-Regeln für diese Ports sauber entfernen
+    for ((i=0; i<${#port_array[@]}; i+=chunk_size)); do
+        chunk=$(IFS=, ; echo "${port_array[*]:i:chunk_size}")
+        while iptables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
+    done
 
-    echo -e "${C_GREEN}[VGT] Schilde stehen. Überwachung für: $USER_PORTS${C_RESET}"
+    # 2. Neue Regeln in Blöcken (Chunks) injizieren
+    for ((i=0; i<${#port_array[@]}; i+=chunk_size)); do
+        chunk=$(IFS=, ; echo "${port_array[*]:i:chunk_size}")
+        iptables -I INPUT 6 -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX "
+    done
+
+    echo -e "${C_GREEN}[VGT] Schilde stehen. Überwachung für ${#port_array[@]} Ports in $(( (${#port_array[@]} + 13) / 14 )) Chunks aktiviert.${C_RESET}"
     sleep 1
 }
 
@@ -123,9 +136,10 @@ function start_hunt() {
         BEGIN {
             c_res = "\033[0m"; c_gry = "\033[38;2;128;128;128m"; c_cyn = "\033[38;2;0;204;255m"; 
             c_ylw = "\033[38;2;255;204;0m"; c_red = "\033[38;2;255;51;102m"; c_pur = "\033[38;2;153;51;255m";
+            c_grn = "\033[38;2;0;255;153m";
             
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
-            print c_cyn "   VGT AUTO-PUNISHER V4.4.1 - HYBRID SUPREME (INTELLIGENT DEFAULT)          " c_res;
+            print c_cyn "   VGT AUTO-PUNISHER V4.4.2 - HYBRID SUPREME (SOVEREIGN IMMUNITY)           " c_res;
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
             print c_gry "ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE" c_res;
             print c_gry "------------------------------------------------------------------------------" c_res;
@@ -135,7 +149,20 @@ function start_hunt() {
             ip = arr[1];
             if (ip ~ /^[0:]+$/) ip = "::";
 
-            if (index(" " wl " ", " " ip " ") > 0 || ip == "" || tolower(ip) ~ /^fe80:/) next;
+            # --- THE SOVEREIGN BYPASS (REFINED) ---
+            # Prüft auf Einzel-IP ODER Subnetz-Übereinstimmung in der Whitelist
+            is_wl = 0;
+            split(wl, wl_parts, " ");
+            for (i in wl_parts) {
+                if (wl_parts[i] == ip) { is_wl = 1; break; }
+                # Simpler Check für /24 Subnetz Whitelisting (Admin-Range Fix)
+                if (wl_parts[i] ~ /\/24$/) {
+                    split(wl_parts[i], wl_range, ".");
+                    split(ip, ip_parts, ".");
+                    if (wl_range[1] == ip_parts[1] && wl_range[2] == ip_parts[2] && wl_range[3] == ip_parts[3]) { is_wl = 1; break; }
+                }
+            }
+            if (is_wl || ip == "" || tolower(ip) ~ /^fe80:/) next;
 
             zeit = $1 " " $2 " " $3;
 
