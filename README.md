@@ -7,7 +7,7 @@
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
-> *"Don't rate-liAGPLv3 attackers. Terminate them."*
+> *"Don't rate-limit attackers. Terminate them."*
 
 ---
 
@@ -22,7 +22,7 @@
 - **Full IPv6 Support** — Dual-Stack monitoring with separate `ipset hash:net family inet6` + `ip6tables` integration. IPv4 and IPv6 attacks detected and terminated independently.
 - **Neon Matrix UI** — Color-coded ANSI terminal dashboard. IPs approaching the ban threshold turn red in real-time.
 - **Dynamic Whitelist** — Configurable at the top of the script. Includes `127.0.0.1`, `::1`, `fe80::/10` (Link-Local) out of the box.
-- **IPv6 Infrastructure Strike deliberately disabled** — IPv6 range bans are oAGPLv3ted by design. ISPs assign dynamic /48 and /64 blocks — a range ban would hit legitimate users. Single-IP termination only for IPv6.
+- **IPv6 Infrastructure Strike deliberately disabled** — IPv6 range bans are omitted by design. ISPs assign dynamic /48 and /64 blocks — a range ban would hit legitimate users. Single-IP termination only for IPv6.
 - **Graceful Exit** — `CTRL+C` kills the heartbeat daemon cleanly. Your ipset bans remain active after exit.
 
 ```
@@ -30,7 +30,7 @@
    VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE (V3.0)
    Status: DUAL STACK SUPREME (IPv4 & IPv6 Monitoring)
 ============================================================================
-   IP-LiAGPLv3: 15 | Range-LiAGPLv3: 30
+   IP-Limit: 15 | Range-Limit: 30
    Whitelist: 127.0.0.1 ::1 0.0.0.0 :: fe80::/10
    Features:  Anti-Freeze Heartbeat, Neon-Matrix, Self-Healing Sensors
 ----------------------------------------------------------------------------
@@ -39,9 +39,9 @@ ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE
 Mar 15 09:12:44     | 185.220.101.47                          |    1 |    3
 Mar 15 09:12:45     | 2a0e:97c0:4d0::1                        |    1 |    0
 ...
-[!!!] PUNISH: IP 185.220.101.47 terminiert (LiAGPLv3 erreicht).
+[!!!] PUNISH: IP 185.220.101.47 terminiert (Limit erreicht).
 ----------------------------------------------------------------------------
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (LiAGPLv3 erreicht).
+[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (Limit erreicht).
 ----------------------------------------------------------------------------
 ```
 
@@ -49,15 +49,15 @@ Mar 15 09:12:45     | 2a0e:97c0:4d0::1                        |    1 |    0
 
 **VGT Auto-Punisher** is a zero-dependency, kernel-level behavioral Intrusion Detection System for Linux servers. It streams live kernel events via `journalctl`, analyzes behavioral patterns in real-time via `awk`, and executes permanent IP bans directly in the kernel via `ipset` + `iptables`/`ip6tables` — with zero application-layer overhead.
 
-No Python. No Node. No frameworks. Pure Bash + kernel priAGPLv3ives.
+No Python. No Node. No frameworks. Pure Bash + kernel primitives.
 
 ---
 
-## 🚨 The Problem With Standard Rate LiAGPLv3ers
+## 🚨 The Problem With Standard Rate Limiters
 
-Most rate liAGPLv3ers operate at the application layer — Nginx, Apache, PHP. By the time they trigger, the attack has already consumed server resources.
+Most rate limiters operate at the application layer — Nginx, Apache, PHP. By the time they trigger, the attack has already consumed server resources.
 
-| Standard Rate LiAGPLv3ers | VGT Auto-Punisher |
+| Standard Rate Limiters | VGT Auto-Punisher |
 |---|---|
 | ❌ Application layer — attack reaches PHP | ✅ Kernel layer — attack never reaches the app |
 | ❌ Temporary blocks — attacker retries | ✅ Permanent ipset ban — mathematically blocked |
@@ -94,7 +94,7 @@ On first run, Auto-Punisher automatically deploys its own defense infrastructure
 ```
 [VGT] Initialisiere System-Integritäts-Check...
 [+] Erstelle IPSET-Tabelle: VGT_AUTO_BANNED
-[+] Verknüpfe IPSET AGPLv3 Firewall (Position 1)...
+[+] Verknüpfe IPSET mit Firewall (Position 1)...
 [+] Installiere Anomalie-Sensor (Log-Regel)...
 [VGT] System-Integrität bestätigt. Schilde sind aktiv.
 ```
@@ -110,7 +110,7 @@ No manual iptables configuration required. No manual ipset setup. It installs it
    VGT AUTO-PUNISHER - OPEN SOURCE DEFENSE ENGINE
    Status: DIAMANT VGT SUPREME (READY FOR GITHUB)
 ==========================================================
-   IP-LiAGPLv3: 30 | Range-LiAGPLv3: 60
+   IP-Limit: 30 | Range-Limit: 60
    Sicherheit: Hard-Whitelist (127.0.0.1) ist AKTIV
 ----------------------------------------------------------
 ZEITSTEMPEL         | QUELL-IP        | HITS | RANGE-HITS
@@ -119,9 +119,9 @@ Mar 15 09:12:44     | 185.220.101.47  |    1 |    3
 Mar 15 09:12:44     | 185.220.101.52  |    1 |    4
 Mar 15 09:12:45     | 185.220.101.47  |    2 |    5
 ...
-[!!!] PUNISH: IP 185.220.101.47 terminiert (LiAGPLv3 30 erreicht).
+[!!!] PUNISH: IP 185.220.101.47 terminiert (Limit 30 erreicht).
 ----------------------------------------------------------
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (LiAGPLv3 60 erreicht).
+[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert (Limit 60 erreicht).
 ----------------------------------------------------------
 ```
 
