@@ -128,7 +128,9 @@ journalctl -kf --grep="$LOG_PREFIX" | awk -v ip_limit="$IP_THRESHOLD" -v range_l
             # IPv6 Detektiert
             target_set = set_v6;
             save_cmd = "ip6tables-save > /etc/iptables/rules.v6 2>/dev/null || true";
-            range = "IPv6_SINGLE"; # Range-Kills bei IPv6 vorerst deaktiviert
+            # IPv6 /64 Range Calculation
+            split(ip, blocks, ":");
+            range = blocks[1] ":" blocks[2] ":" blocks[3] ":" blocks[4] "::/64";
         } else {
             # IPv4 Detektiert
             target_set = set_v4;
@@ -138,17 +140,14 @@ journalctl -kf --grep="$LOG_PREFIX" | awk -v ip_limit="$IP_THRESHOLD" -v range_l
         }
 
         ip_count[ip]++;
-        if (range != "IPv6_SINGLE") {
-            range_count[range]++;
-        }
+        range_count[range]++;
 
         # Dynamische Farb-Warnstufen
         h_col = (ip_count[ip] >= (ip_limit - 5)) ? c_red : c_ylw;
-        r_col = (range != "IPv6_STRIKE" && range_count[range] >= (range_limit - 10)) ? c_red : c_ylw;
-        if (range == "IPv6_SINGLE") r_col = c_gry;
+        r_col = (range_count[range] >= (range_limit - 10)) ? c_red : c_ylw;
 
         # Formatierter Tabellen-Output
-        printf "%s%-19s%s | %s%-39s%s | %s%4d%s | %s%4d%s\n", c_gry, zeit, c_res, c_cyn, ip, c_res, h_col, ip_count[ip], c_res, r_col, (range == "IPv6_SINGLE" ? 0 : range_count[range]), c_res;
+        printf "%s%-19s%s | %s%-39s%s | %s%4d%s | %s%4d%s\n", c_gry, zeit, c_res, c_cyn, ip, c_res, h_col, ip_count[ip], c_res, r_col, range_count[range], c_res;
 
         # KINETIC STRIKE: IP
         if (ip_count[ip] == ip_limit) {
@@ -158,8 +157,8 @@ journalctl -kf --grep="$LOG_PREFIX" | awk -v ip_limit="$IP_THRESHOLD" -v range_l
             print c_gry "----------------------------------------------------------------------------" c_res;
         }
 
-        # KINETIC STRIKE: RANGE (Nur IPv4)
-        if (range != "IPv6_SINGLE" && range_count[range] == range_limit) {
+        # KINETIC STRIKE: RANGE (IPv4 /24, IPv6 /64)
+        if (range_count[range] == range_limit) {
             print "\n" c_red "[!!!] INFRA-SCHLAG: Range " range " terminiert (Limit erreicht)." c_res;
             system("ipset add " target_set " " range " -exist");
             system(save_cmd);
