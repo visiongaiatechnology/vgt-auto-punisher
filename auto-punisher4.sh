@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.5.0 - OPEN SOURCE MASTER)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.5.1 - OPEN SOURCE MASTER)
 # STATUS: DIAMANT VGT SUPREME (FOOLPROOF EDITION)
 # ARCHITECTURE: Passive Log-Sensing + DPI Sanitization + Forgiveness Protocol
-# UPDATE: IPSET Timeouts (24h) & Log-Flood Protection integriert.
+# UPDATE: Upgrade-Fix für existierende IPSETs (Ignoriert Parameter-Konflikte)
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -44,7 +44,7 @@ function init_defense() {
 
     clear
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
-    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.5.0)${C_RESET}"
+    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.5.1)${C_RESET}"
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
 
     # --- PORT DISCOVERY ---
@@ -71,9 +71,9 @@ net.core.default_qdisc = fq
 EOF
     sysctl -q -p /etc/sysctl.d/99-vgt-punisher.conf
 
-    # --- IPSET SETUP (WITH TIMEOUTS) ---
-    # VGT FIX: Timeout von 24h schützt Open-Source User vor permanentem Self-Lockout
-    ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist
+    # --- IPSET SETUP (WITH TIMEOUTS & UPGRADE FIX) ---
+    # VGT FIX: || true verhindert, dass das Skript abbricht, wenn das Set bereits (ohne Timeout) von einer alten Version existiert.
+    ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
     ipset create "$IPSET_V6" hash:net family inet6 maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
 
     # --- FIREWALL INJEKTION ---
@@ -142,7 +142,7 @@ function start_hunt() {
             c_grn = "\033[38;2;0;255;153m";
             
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
-            print c_cyn "   VGT AUTO-PUNISHER V4.5.0 - OPEN SOURCE MASTER (FOOLPROOF EDITION)        " c_res;
+            print c_cyn "   VGT AUTO-PUNISHER V4.5.1 - OPEN SOURCE MASTER (FOOLPROOF EDITION)        " c_res;
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
             print c_gry "ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE" c_res;
             print c_gry "------------------------------------------------------------------------------" c_res;
