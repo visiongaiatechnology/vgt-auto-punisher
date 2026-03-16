@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.4.2 - SOVEREIGN WHITELIST)
-# STATUS: DIAMANT VGT SUPREME (ADMIN IMMUNITY)
-# ARCHITECTURE: Passive Log-Sensing + DPI Sanitization
-# UPDATE: Permanente Immunität für Admin-Range integrierbar.
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.5.0 - OPEN SOURCE MASTER)
+# STATUS: DIAMANT VGT SUPREME (FOOLPROOF EDITION)
+# ARCHITECTURE: Passive Log-Sensing + DPI Sanitization + Forgiveness Protocol
+# UPDATE: IPSET Timeouts (24h) & Log-Flood Protection integriert.
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -11,6 +11,7 @@ set -Eeuo pipefail
 # --- VGT PARAMETER ---
 readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban
 readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
+readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer (Forgiveness Protocol)
 readonly LOG_PREFIX="[VGT_STRIKE]"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
@@ -43,7 +44,7 @@ function init_defense() {
 
     clear
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
-    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.4.2)${C_RESET}"
+    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.5.0)${C_RESET}"
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
 
     # --- PORT DISCOVERY ---
@@ -70,9 +71,10 @@ net.core.default_qdisc = fq
 EOF
     sysctl -q -p /etc/sysctl.d/99-vgt-punisher.conf
 
-    # --- IPSET SETUP ---
-    ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 -exist
-    ipset create "$IPSET_V6" hash:net family inet6 maxelem 1000000 -exist 2>/dev/null || true
+    # --- IPSET SETUP (WITH TIMEOUTS) ---
+    # VGT FIX: Timeout von 24h schützt Open-Source User vor permanentem Self-Lockout
+    ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist
+    ipset create "$IPSET_V6" hash:net family inet6 maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
 
     # --- FIREWALL INJEKTION ---
     echo -e "${C_GRAY}[VGT] Injektiere Layer-4 Schilde & DPI Engine...${C_RESET}"
@@ -93,21 +95,22 @@ EOF
         iptables -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
     fi
 
-    # --- VGT FIX: Scoped Anomaly Sensor (Dynamic Chunking) ---
-    # iptables 'multiport' hat ein hartes Limit von 15 Ports. Wir splitten die Liste!
+    # --- VGT FIX: Scoped Anomaly Sensor (Dynamic Chunking + Log Limit) ---
     IFS=',' read -r -a port_array <<< "$USER_PORTS"
     chunk_size=14
     
-    # 1. Alte Logging-Regeln für diese Ports sauber entfernen
+    # 1. Alte Logging-Regeln entfernen
     for ((i=0; i<${#port_array[@]}; i+=chunk_size)); do
         chunk=$(IFS=, ; echo "${port_array[*]:i:chunk_size}")
+        while iptables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
+        # Fallback Cleanup für alte Regeln ohne Limit
         while iptables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
     done
 
-    # 2. Neue Regeln in Blöcken (Chunks) injizieren
+    # 2. Neue Regeln injizieren (Mit Rate-Limit zum Schutz der Festplatte)
     for ((i=0; i<${#port_array[@]}; i+=chunk_size)); do
         chunk=$(IFS=, ; echo "${port_array[*]:i:chunk_size}")
-        iptables -I INPUT 6 -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX "
+        iptables -I INPUT 6 -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX "
     done
 
     echo -e "${C_GREEN}[VGT] Schilde stehen. Überwachung für ${#port_array[@]} Ports in $(( (${#port_array[@]} + 13) / 14 )) Chunks aktiviert.${C_RESET}"
@@ -139,7 +142,7 @@ function start_hunt() {
             c_grn = "\033[38;2;0;255;153m";
             
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
-            print c_cyn "   VGT AUTO-PUNISHER V4.4.2 - HYBRID SUPREME (SOVEREIGN IMMUNITY)           " c_res;
+            print c_cyn "   VGT AUTO-PUNISHER V4.5.0 - OPEN SOURCE MASTER (FOOLPROOF EDITION)        " c_res;
             print c_pur "██████████████████████████████████████████████████████████████████████████████" c_res;
             print c_gry "ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE" c_res;
             print c_gry "------------------------------------------------------------------------------" c_res;
@@ -150,12 +153,10 @@ function start_hunt() {
             if (ip ~ /^[0:]+$/) ip = "::";
 
             # --- THE SOVEREIGN BYPASS (REFINED) ---
-            # Prüft auf Einzel-IP ODER Subnetz-Übereinstimmung in der Whitelist
             is_wl = 0;
             split(wl, wl_parts, " ");
             for (i in wl_parts) {
                 if (wl_parts[i] == ip) { is_wl = 1; break; }
-                # Simpler Check für /24 Subnetz Whitelisting (Admin-Range Fix)
                 if (wl_parts[i] ~ /\/24$/) {
                     split(wl_parts[i], wl_range, ".");
                     split(ip, ip_parts, ".");
@@ -181,14 +182,15 @@ function start_hunt() {
 
             printf "%s%-19s%s | %s%-39s%s | %s%4d%s | %s%4d%s\n", c_gry, zeit, c_res, c_cyn, ip, c_res, h_col, ip_count[ip], c_res, r_col, (is_v6 ? 0 : range_count[range]), c_res;
 
+            # VGT STRIKE EXECUTION (With Timeout inheritance)
             if (ip_count[ip] == ip_limit) {
-                print "\n" c_red "[!!!] TERMINIERT: IP " ip " hingerichtet." c_res;
+                print "\n" c_red "[!!!] TERMINIERT: IP " ip " für 24h hingerichtet." c_res;
                 system("ipset add " target_set " " ip " -exist");
                 system(save_cmd " 2>/dev/null || true");
             }
 
             if (!is_v6 && range_count[range] == range_limit) {
-                print "\n" c_red "[!!!] INFRA-SCHLAG: Range " range " terminiert." c_res;
+                print "\n" c_red "[!!!] INFRA-SCHLAG: Range " range " für 24h terminiert." c_res;
                 system("ipset add " target_set " " range " -exist");
                 system(save_cmd " 2>/dev/null || true");
             }
