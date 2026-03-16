@@ -2,16 +2,18 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-4.4.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-4.5.0-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-Hybrid_Supreme-red?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![DPI](https://img.shields.io/badge/DPI-ENABLED-purple?style=for-the-badge)](#)
-[![Status](https://img.shields.io/badge/Status-DIAMANT-purple?style=for-the-badge)](#)
+[![Status](https://img.shields.io/badge/Status-STABLE-brightgreen?style=for-the-badge)](#)
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
 > *"Don't rate-limit attackers. Terminate them."*
 > *AGPLv3 — For Humans, not for SaaS Corporations.*
+
+**V4.5.0 is the official stable release of VGT Auto-Punisher.** This is the version we run in production.
 
 ---
 
@@ -22,121 +24,109 @@
 Before running the script, open it and add your public IP to the whitelist:
 
 ```bash
-# Find your public IP
+# Step 1 — Find your public IP
 curl -4 -s ifconfig.me   # Your IPv4
 curl -6 -s ifconfig.me   # Your IPv6
 
-# Open the script
+# Step 2 — Open the script
 nano auto-punisher.sh
 
-# Find this line and add your IP:
+# Step 3 — Find this line and add your IP:
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 YOUR.IP.HERE"
 
-# If your ISP rotates your IP (common with home connections), whitelist the entire /24:
+# If your ISP rotates your IP within a subnet (common with home connections):
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 YOUR.IP.0/24"
 
 # For IPv6, whitelist the entire /64 subnet:
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 2a02:xxxx:xxxx:xxxx::/64"
 ```
 
-> **Why /24 for home users?** Many ISPs rotate your IP within a subnet block. If you whitelist a single IP and your ISP assigns you a new one, you will be locked out on the next session.
+> **Why /24?** Many ISPs rotate your IP within a /24 subnet block. If you whitelist only a single IP and your ISP assigns you a new one, you will be locked out on the next session.
 
 ### 🆘 Already Locked Out?
 
-Use your hosting provider's emergency console and run:
+Use your hosting provider's emergency console **(Strato KVM, Hetzner Console, netcup KVM, etc.)** and run:
 
 ```bash
-# Flush all bans immediately
+# Option A — Flush all bans (bans expire after 24h anyway)
 ipset flush VGT_BANNED_V4
 ipset flush VGT_BANNED_V6
 
-# Or remove all iptables rules
+# Option B — Remove all iptables rules
 iptables -F INPUT
 ip6tables -F INPUT
 ```
+
+> **Note:** V4.5.0 introduces the **Forgiveness Protocol** — all bans automatically expire after 24 hours. Even if you get locked out, you will regain access within 24h without any manual intervention.
+
+---
+
+## 🆕 V4.5.0 — Official Stable Release
+
+**This is the official version.** All previous versions were development iterations leading to this release.
+
+| Feature | Description |
+|---|---|
+| **Forgiveness Protocol** | All bans expire after 24h automatically — no permanent lockouts |
+| **Dynamic Port Chunking** | iptables multiport handles max 15 ports per rule — auto-chunked |
+| **Log Rate Limiting** | 50 logs/second max — protects disk/SSD from log floods |
+| **Passive Log-Sensing** | Monitors only selected ports — legitimate users never affected |
+| **DPI Sanitization** | XMAS, NULL, MSS anomaly, invalid state dropped at Layer 4 |
+| **BBR + Kernel Hardening** | TCP stack optimized for performance and resilience |
+| **Subnet Whitelist in AWK** | /24 ranges evaluated directly in the stream processor |
+| **IPv6 Dual-Stack** | Full IPv4 + IPv6 monitoring and termination |
+| **SSH Anti-Freeze** | Heartbeat every 45s prevents SSH timeout on long sessions |
+| **TUI Matrix** | Alternate screen buffer, RGB ANSI, zero flicker |
 
 ---
 
 ## 🏛️ Architecture — Hybrid Supreme
 
-V4.4.0 combines the best of all previous versions into one stable, production-ready engine:
+V4.5.0 combines passive log-sensing (V3 architecture) with V4 kernel hardening and DPI:
 
 ```
-V3 Architecture  →  Passive Log-Sensing (journalctl → AWK → ipset)
-V4 Technology    →  Port Discovery + DPI + Kernel Hardening + TUI
-```
-
-```
-Packet arrives
+Packet arrives at server
     ↓
-iptables INPUT (Position 1)
-    → ipset check → DROP if banned        ← O(1) speed
+iptables INPUT Position 1
+    → ipset O(1) lookup → DROP if banned     ← Banned traffic never reaches app
     ↓
-iptables INPUT (Position 2)
+iptables INPUT Position 2-5
     → DPI: INVALID state → DROP
-    → DPI: XMAS scan → DROP
-    → DPI: NULL scan → DROP
+    → DPI: XMAS scan (FIN+PSH+URG) → DROP
+    → DPI: NULL scan (no flags) → DROP
     → DPI: MSS anomaly → DROP
     ↓
-iptables INPUT (Position 6)
-    → Scoped LOG on monitored ports       ← Passive sensor
+iptables INPUT Position 6+
+    → Passive LOG on monitored ports only    ← Rate-limited: 50/s max
+    → Normal traffic passes through
     ↓
 journalctl stream → AWK analysis
-    → IP hit count → threshold → ipset ban
-    → /24 subnet count → threshold → ipset ban
-```
-
-**Key advantage:** The LOG sensor only fires on your selected ports — legitimate web traffic on other ports is never counted. Normal users never hit the threshold.
-
----
-
-## 🆕 What's New in V4.4.0
-
-| Feature | V3.x | V4.4.0 |
-|---|---|---|
-| **Architecture** | iptables + ipset + AWK | Hybrid: same + DPI + BBR |
-| **Port Discovery** | None | `ss -tlnp` scans open ports |
-| **DPI** | None | XMAS, NULL, MSS, INVALID state |
-| **Kernel Hardening** | Basic | BBR, syncookies, backlog tuning |
-| **Sensor Scope** | All TCP SYN | Only on selected ports |
-| **TUI** | Basic ANSI | Alternate screen, RGB ANSI, zero flicker |
-| **SSH Heartbeat** | ✅ | ✅ (prevents timeout on long sessions) |
-| **IPv6** | ✅ | ✅ Dual-Stack |
-| **Whitelist** | Top of script | Top of script + /24 subnet support |
-
----
-
-## 🛡️ Deep Packet Inspection
-
-V4.4.0 adds iptables-level DPI rules that drop malformed packets before the behavioral analysis even starts:
-
-```bash
-# Invalid connection state
-iptables -I INPUT 2 -m state --state INVALID -j DROP
-
-# XMAS scan (FIN+PSH+URG flags)
-iptables -I INPUT 3 -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP
-
-# NULL scan (no flags)
-iptables -I INPUT 4 -p tcp --tcp-flags ALL NONE -j DROP
-
-# MSS anomaly (fingerprinting / malformed SYN)
-iptables -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
+    → Whitelist check → skip if whitelisted
+    → IP hit count → threshold → ipset add (24h timeout)
+    → /24 subnet count → threshold → ipset add (24h timeout)
+    ↓
+After 24h → ban expires automatically (Forgiveness Protocol)
 ```
 
 ---
 
-## ⚙️ Kernel TCP Hardening
+## 🛡️ Two Strike Modes
 
-Applied automatically on first run:
+### Surgical Strike — Single IP
+When a single IP exceeds `IP_THRESHOLD` (default: 15 hits), it is added to the ipset with a 24h timeout.
 
-```bash
-net.ipv4.tcp_syncookies = 1          # SYN flood protection
-net.ipv4.tcp_max_syn_backlog = 65536  # Large SYN queue
-net.core.netdev_max_backlog = 65536   # NIC receive buffer
-net.ipv4.tcp_congestion_control = bbr # Google BBR
-net.core.default_qdisc = fq           # Fair queuing
 ```
+[!!!] TERMINIERT: IP 185.220.101.47 für 24h hingerichtet.
+```
+
+### Infrastructure Strike — /24 Subnet
+When hits from the same /24 subnet exceed `RANGE_THRESHOLD` (default: 30 hits), the entire subnet is banned. This catches coordinated botnet attacks that rotate IPs within the same provider block.
+
+```
+[!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
+```
+
+> **Real-world example:** A coordinated botnet distributed its traffic across `177.23.200.x` through `177.23.207.x`. Auto-Punisher detected the subnet pattern and terminated 5 complete /24 ranges within 3 minutes — while the attack was still ongoing.
 
 ---
 
@@ -144,21 +134,21 @@ net.core.default_qdisc = fq           # Fair queuing
 
 ```
 ████████████████████████████████████████████████████████████████████████████████
-   VGT AUTO-PUNISHER V4.4.0 - HYBRID SUPREME (PASSIVE RADAR + DPI)
+   VGT AUTO-PUNISHER V4.5.0 - OPEN SOURCE MASTER (FOOLPROOF EDITION)
 ████████████████████████████████████████████████████████████████████████████████
 ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE
 ------------------------------------------------------------------------------
 Mar 16 03:12:44     | 185.220.101.47                          |   12 |   18
-Mar 16 03:12:44     | 185.220.101.52                          |    3 |   21
+Mar 16 03:12:45     | 177.23.200.63                           |    1 |   28
 
-[!!!] TERMINIERT: IP 185.220.101.47 hingerichtet.
-[!!!] INFRA-SCHLAG: Range 185.220.101.0/24 terminiert.
+[!!!] TERMINIERT: IP 185.220.101.47 für 24h hingerichtet.
+[!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
 ```
 
 - **RGB ANSI colors** — IPs turn red as they approach the ban threshold
-- **Alternate screen buffer** — clean exit, no terminal pollution
-- **SSH Anti-Freeze Heartbeat** — prevents SSH timeout during long sessions
-- **Live stream** — every SYN packet on monitored ports appears in real-time
+- **Alternate screen buffer** — clean exit, terminal restored on CTRL+C
+- **SSH Anti-Freeze Heartbeat** — saves/restores cursor every 45s
+- **Live stream** — every monitored SYN packet appears in real-time
 
 ---
 
@@ -166,39 +156,52 @@ Mar 16 03:12:44     | 185.220.101.52                          |    3 |   21
 
 ### Requirements
 
-- Linux (Debian / Ubuntu / CentOS)
-- `ipset`, `iptables`, `ip6tables`, `journalctl`, `awk`
-- Root access
+| Tool | Purpose |
+|---|---|
+| `ipset` | High-speed IP blocklist |
+| `iptables` / `ip6tables` | Firewall rules |
+| `journalctl` | Kernel log stream |
+| `awk` | Stream analysis engine |
+| `ss` | Port discovery |
+
+```bash
+# Debian / Ubuntu
+apt-get install ipset iptables iproute2
+```
 
 ### Setup
 
 ```bash
-# Clone
+# 1. Clone
 git clone https://github.com/visiongaiatechnology/vgt-auto-punisher.git
 cd vgt-auto-punisher
 
-# 1. Add your IP to the whitelist first!
+# 2. Add your IP to the whitelist FIRST
 nano auto-punisher.sh
-# Edit: readonly WHITELIST_IPS="... YOUR.IP.HERE"
+# Edit: readonly WHITELIST_IPS="... YOUR.IP.0/24"
 
-# 2. Make executable
+# 3. Make executable
 chmod +x auto-punisher.sh
 
-# 3. Run
+# 4. Run
 sudo ./auto-punisher.sh
 ```
 
-On first run, the script:
-1. Scans open ports via `ss -tlnp`
-2. Asks which ports to monitor
-3. Applies kernel TCP hardening
-4. Sets up ipset tables
-5. Injects DPI rules into iptables
-6. Starts the live AWK analysis stream
+### What happens on first run
+
+```
+1. Scans open ports via ss -tlnp
+2. Asks which ports to monitor (default: all detected)
+3. Applies kernel TCP hardening (BBR, syncookies, backlog)
+4. Creates ipset tables with 24h timeout
+5. Injects DPI rules (XMAS, NULL, MSS, INVALID)
+6. Injects scoped LOG sensor (rate-limited to 50/s)
+7. Starts live AWK analysis stream
+```
 
 ---
 
-## 📋 Common Port Reference
+## 📋 Port Reference
 
 | Port | Service | Monitor? |
 |---|---|---|
@@ -207,22 +210,20 @@ On first run, the script:
 | `443` | HTTPS | ✅ Webserver |
 | `2222` | Custom SSH | ⚠️ If you moved SSH |
 | `8080` | HTTP Alt | ⚠️ If you use it |
-| `3306` | MySQL | ⚠️ Only if remote access needed |
-| `5432` | PostgreSQL | ⚠️ Only if remote access needed |
+| `3306` | MySQL | ⚠️ Only if internet-facing |
+| `5432` | PostgreSQL | ⚠️ Only if internet-facing |
 | `25` | SMTP | ⚠️ Mail server only |
 | `21` | FTP | ⚠️ Legacy — prefer SFTP |
 
-> **Rule of thumb:** Only monitor ports that face the internet. Database ports should never be internet-facing.
+> **Rule of thumb:** Only monitor ports that face the internet directly. Database ports should never be internet-facing.
 
 ---
 
-## 🔍 Managing the Blocklist
+## 🔍 Managing Bans
 
 ```bash
-# View all banned IPv4 IPs
+# View all active bans
 ipset list VGT_BANNED_V4
-
-# View all banned IPv6 IPs
 ipset list VGT_BANNED_V6
 
 # Count total bans
@@ -235,8 +236,8 @@ ipset del VGT_BANNED_V4 1.2.3.4
 ipset flush VGT_BANNED_V4
 ipset flush VGT_BANNED_V6
 
-# Bans survive reboot (iptables-save is called automatically)
-# To restore after reboot:
+# Bans are auto-saved after each strike
+# Restore after reboot:
 iptables-restore < /etc/iptables/rules.v4
 ip6tables-restore < /etc/iptables/rules.v6
 ```
@@ -246,15 +247,19 @@ ip6tables-restore < /etc/iptables/rules.v6
 ## 📦 System Specs
 
 ```
+VERSION           4.5.0 (Official Stable Release)
 ARCHITECTURE      Hybrid (iptables + ipset + journalctl + AWK)
-SENSOR            Passive LOG on selected ports (scoped, non-invasive)
-BAN_MECHANISM     ipset hash:net (O(1) lookup, up to 1,000,000 entries)
-DPI               INVALID state, XMAS scan, NULL scan, MSS anomaly
-PERSISTENCE       iptables-save → /etc/iptables/rules.v4
-IPv4_RANGES       /24 subnet ban via AWK analysis
+SENSOR            Passive LOG on selected ports (scoped, rate-limited)
+BAN_MECHANISM     ipset hash:net with 24h timeout (Forgiveness Protocol)
+BAN_DURATION      24 hours (configurable via BAN_TIME)
+DPI               INVALID state, XMAS, NULL scan, MSS anomaly
+PERSISTENCE       iptables-save after every ban
+IPv4_RANGES       /24 subnet ban via AWK subnet analysis
 IPv6              Single-IP ban (range bans disabled by design)
-TCP_HARDENING     BBR, syncookies, SYN backlog tuning
-SSH_SAFETY        Heartbeat + Whitelist + scoped port monitoring
+TCP_HARDENING     BBR, syncookies, SYN backlog, FQ qdisc
+LOG_PROTECTION    Rate-limited to 50/s, burst 100
+PORT_CHUNKING     Auto-chunked into groups of 14 (iptables limit)
+SSH_SAFETY        Heartbeat + 24h auto-expiry + whitelist
 OVERHEAD          ~0% CPU idle (event-driven, no polling)
 ```
 
@@ -264,22 +269,12 @@ OVERHEAD          ~0% CPU idle (event-driven, no polling)
 
 | Tool | Type | Purpose |
 |---|---|---|
-| ⚔️ **VGT Auto-Punisher** | **Reactive** | Bans attackers in real-time |
-| 🌐 **[VGT Global Threat Sync](https://github.com/visiongaiatechnology/vgt-global-threat-sync)** | **Preventive** | Daily feed sync — blocks known threats |
-| 🔥 **[VGT Windows Firewall Burner](https://github.com/visiongaiatechnology/vgt-windows-burner)** | **Windows** | 280,000+ APT IPs in Windows Firewall |
+| ⚔️ **VGT Auto-Punisher** | **Reactive** | Bans attackers the moment they hit |
+| 🌐 **[VGT Global Threat Sync](https://github.com/visiongaiatechnology/vgt-global-threat-sync)** | **Preventive** | Daily feed sync — blocks known threats before arrival |
+| 🔥 **[VGT Windows Firewall Burner](https://github.com/visiongaiatechnology/vgt-windows-burner)** | **Windows** | 280,000+ APT IPs in native Windows Firewall |
 | 🔍 **[VGT Civilian Checker](https://github.com/visiongaiatechnology/Winsyssec)** | **Audit** | Windows security posture assessment |
 
-> **Recommended stack:** Global Threat Sync daily for preventive coverage + Auto-Punisher for reactive coverage.
-
----
-
-## ⚠️ Important Notes
-
-- **Whitelist your IP first** — see the Critical Warning section above
-- **Dynamic IPs** — whitelist your entire `/24` subnet if your ISP rotates your IP
-- **IPv6 range bans disabled** — ISPs assign /64 blocks dynamically, range bans would hit legitimate users
-- **Scoped monitoring** — only ports you select are monitored, web traffic on other ports is never counted
-- **Bans persist** — `iptables-save` is called after every ban. Restore with `iptables-restore` after reboot.
+> **Recommended stack:** Global Threat Sync daily (preventive) + Auto-Punisher as service (reactive) = complete coverage.
 
 ---
 
@@ -305,8 +300,8 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 
 VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
 
-> *"Tino wanted to throw the script away. V4.4.0 is what happened instead."* 😄
+> *"Tino wanted to throw the script away. V4.5.0 terminated a ByteDance botnet and 5 coordinated /24 ranges instead."* 😄
 
 ---
 
-*Version 4.4.0 (HYBRID SUPREME) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
+*Version 4.5.0 (OPEN SOURCE MASTER — FOOLPROOF EDITION) — VGT Auto-Punisher // Official Stable Release*
