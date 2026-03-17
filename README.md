@@ -177,14 +177,30 @@ git clone https://github.com/visiongaiatechnology/vgt-auto-punisher.git
 cd vgt-auto-punisher
 
 # 2. Add your IP to the whitelist FIRST
-nano auto-punisher.sh
+# Auto Punisher 3
+nano auto-punisher3.sh
+# Auto Punisher 3 Titan
+nano auto_punisher_titan3.sh
+# Auto Punisher 4
+nano auto-punisher4.sh
+
 # Edit: readonly WHITELIST_IPS="... YOUR.IP.0/24"
 
 # 3. Make executable
-chmod +x auto-punisher.sh
+# Auto Punisher 3
+chmod +x auto-punisher3.sh
+# Auto Punisher 3 Titan
+chmod +x auto_punisher_titan3.sh
+# Auto Punisher 4
+chmod +x auto-punisher4.sh
 
 # 4. Run
-sudo ./auto-punisher.sh
+# Auto Punisher 3
+sudo ./auto-punisher3.sh
+# Auto Punisher 3 Titan
+sudo ./auto_punisher_titan3.sh
+# Auto Punisher 3
+sudo ./auto-punisher4.sh
 ```
 
 ### What happens on first run
