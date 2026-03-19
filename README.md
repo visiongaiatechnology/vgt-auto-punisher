@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-4.5.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-4.6.2-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-Hybrid_Supreme-red?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![DPI](https://img.shields.io/badge/DPI-ENABLED-purple?style=for-the-badge)](#)
@@ -61,9 +61,20 @@ ip6tables -F INPUT
 
 ---
 
-## 🆕 V4.5.0 — Official Stable Release
+## 🆕 V4.6.2 — Velocity & Macro Strike Engine
 
-**This is the official version.** All previous versions were development iterations leading to this release.
+**This is the current release.** V4.6.2 adds two new kinetic strike modes on top of the stable V4.5.0 foundation.
+
+### New in V4.6.2
+
+| Feature | Description |
+|---|---|
+| **Velocity Strike** | Flash-burst detection — bans IPs that exceed 5 hits/second instantly |
+| **Macro Strike** | /16 sector kill — terminates entire provider blocks when roaming scanners are detected |
+| **O(1) Time-Bucketing** | Burst tracking uses log timestamps — zero CPU overhead |
+| **Extended TUI** | New BURST and /16 SEKTOR columns in the live dashboard |
+
+### All Features
 
 | Feature | Description |
 |---|---|
@@ -110,7 +121,14 @@ After 24h → ban expires automatically (Forgiveness Protocol)
 
 ---
 
-## 🛡️ Two Strike Modes
+## 🛡️ Four Strike Modes
+
+### Velocity Strike — Flash Burst ⚡ NEW in V4.6.2
+When a single IP exceeds `VELOCITY_LIMIT` (default: 5 hits/second), it is terminated instantly. Catches automated scanners that fire in rapid bursts.
+
+```
+[!!!] VELOCITY STRIKE: IP 185.220.101.47 terminiert (Flash-Burst erkannt: 7 Hits/sek).
+```
 
 ### Surgical Strike — Single IP
 When a single IP exceeds `IP_THRESHOLD` (default: 15 hits), it is added to the ipset with a 24h timeout.
@@ -120,29 +138,37 @@ When a single IP exceeds `IP_THRESHOLD` (default: 15 hits), it is added to the i
 ```
 
 ### Infrastructure Strike — /24 Subnet
-When hits from the same /24 subnet exceed `RANGE_THRESHOLD` (default: 30 hits), the entire subnet is banned. This catches coordinated botnet attacks that rotate IPs within the same provider block.
+When hits from the same /24 subnet exceed `RANGE_THRESHOLD` (default: 30 hits), the entire subnet is banned. Catches coordinated botnet attacks that rotate IPs within the same provider block.
 
 ```
 [!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
 ```
 
-> **Real-world example:** A coordinated botnet distributed its traffic across `177.23.200.x` through `177.23.207.x`. Auto-Punisher detected the subnet pattern and terminated 5 complete /24 ranges within 3 minutes — while the attack was still ongoing.
+### Macro Strike — /16 Sector ☢️ NEW in V4.6.2
+When hits from the same /16 sector exceed `WIDE_RANGE_THRESHOLD` (default: 150 hits), the entire provider sector is banned. Catches roaming scanners that spread across multiple /24 blocks.
+
+```
+[!!!] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).
+```
+
+> **Real-world example:** A coordinated botnet distributed its traffic across `177.23.200.x` through `177.23.207.x`. Auto-Punisher detected the subnet pattern, terminated 5 complete /24 ranges — and would now also trigger a /16 Macro Strike on the entire `177.23.0.0/16` sector.
 
 ---
 
 ## 🖥️ TUI Matrix Dashboard
 
 ```
-████████████████████████████████████████████████████████████████████████████████
-   VGT AUTO-PUNISHER V4.5.0 - OPEN SOURCE MASTER (FOOLPROOF EDITION)
-████████████████████████████████████████████████████████████████████████████████
-ZEITSTEMPEL         | QUELL-IP                                | HITS | RANGE
-------------------------------------------------------------------------------
-Mar 16 03:12:44     | 185.220.101.47                          |   12 |   18
-Mar 16 03:12:45     | 177.23.200.63                           |    1 |   28
+████████████████████████████████████████████████████████████████████████████████████
+   VGT AUTO-PUNISHER V4.6.2 - VELOCITY & MACRO STRIKE ENGINE
+████████████████████████████████████████████████████████████████████████████████████
+ZEITSTEMPEL         | QUELL-IP        | BURST | HITS | /24 RANGE | /16 SEKTOR
+------------------------------------------------------------------------------------
+Mar 19 03:12:44     | 185.220.101.47  |     3 |   12 |        18 |         47
+Mar 19 03:12:44     | 177.23.200.63   |     7 |    1 |        28 |        142
 
-[!!!] TERMINIERT: IP 185.220.101.47 für 24h hingerichtet.
+[!!!] VELOCITY STRIKE: IP 177.23.200.63 terminiert (Flash-Burst erkannt: 7 Hits/sek).
 [!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
+[!!!] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).
 ```
 
 - **RGB ANSI colors** — IPs turn red as they approach the ban threshold
@@ -183,6 +209,8 @@ nano auto-punisher3.sh
 nano auto_punisher_titan3.sh
 # Auto Punisher 4
 nano auto-punisher4.sh
+# Auto Punisher 4.6.2
+nano auto-punisher4-6-2.sh
 
 # Edit: readonly WHITELIST_IPS="... YOUR.IP.0/24"
 
@@ -193,15 +221,20 @@ chmod +x auto-punisher3.sh
 chmod +x auto_punisher_titan3.sh
 # Auto Punisher 4
 chmod +x auto-punisher4.sh
+# Auto Punisher 4.6.2
+chmod auto-punisher4-6-2.sh
 
 # 4. Run
 # Auto Punisher 3
 sudo ./auto-punisher3.sh
 # Auto Punisher 3 Titan
 sudo ./auto_punisher_titan3.sh
-# Auto Punisher 3
+# Auto Punisher 4
 sudo ./auto-punisher4.sh
+# Auto Punisher 4.6.2
+sudo ./auto-punisher4-6-2.sh
 ```
+
 
 ### What happens on first run
 
@@ -263,14 +296,17 @@ ip6tables-restore < /etc/iptables/rules.v6
 ## 📦 System Specs
 
 ```
-VERSION           4.5.0 (Official Stable Release)
+VERSION           4.6.2 (Velocity & Macro Strike Engine)
 ARCHITECTURE      Hybrid (iptables + ipset + journalctl + AWK)
 SENSOR            Passive LOG on selected ports (scoped, rate-limited)
 BAN_MECHANISM     ipset hash:net with 24h timeout (Forgiveness Protocol)
 BAN_DURATION      24 hours (configurable via BAN_TIME)
+STRIKE_MODES      4: Velocity + Surgical + Infrastructure + Macro
+VELOCITY_LIMIT    5 hits/second (Flash-Burst detection)
+WIDE_RANGE        /16 sector kill at 150 hits (Roaming-Scanner)
 DPI               INVALID state, XMAS, NULL scan, MSS anomaly
 PERSISTENCE       iptables-save after every ban
-IPv4_RANGES       /24 subnet ban via AWK subnet analysis
+IPv4_RANGES       /24 + /16 subnet ban via AWK
 IPv6              Single-IP ban (range bans disabled by design)
 TCP_HARDENING     BBR, syncookies, SYN backlog, FQ qdisc
 LOG_PROTECTION    Rate-limited to 50/s, burst 100
@@ -320,4 +356,4 @@ VisionGaia Technology builds enterprise-grade security and AI tooling — engine
 
 ---
 
-*Version 4.5.0 (OPEN SOURCE MASTER — FOOLPROOF EDITION) — VGT Auto-Punisher // Official Stable Release*
+*Version 4.6.2 (VELOCITY & MACRO STRIKE ENGINE) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
