@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-4.6.2-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-4.7.0-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-Hybrid_Supreme-red?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![DPI](https://img.shields.io/badge/DPI-ENABLED-purple?style=for-the-badge)](#)
@@ -73,37 +73,26 @@ ip6tables -F INPUT
 
 > **Note:** V4.5.0 introduces the **Forgiveness Protocol** — all bans automatically expire after 24 hours. Even if you get locked out, you will regain access within 24h without any manual intervention.
 
+<img width="862" height="411" alt="{D313F70E-D46F-4D37-89E1-A5958031542E}" src="https://github.com/user-attachments/assets/2283523a-be8a-4b17-a694-54042fe4dbee" />
+
+
 ---
-## 🆕 V4.7 — UI Update and Port Mapping
 
-**This is the current release.** V4.7 adds a new UI and Port Mapping
+## 🆕 V4.7.0 — Supreme Terminal UI & Port Mapping
 
-### New in V4.7
-
-| Feature | Description |
-|---|---|
-| **Port Mapping** | Now see where the IP addresses were trying to access |
-| **UI Update** | New UI for an even better experience |
-
-
-
-## 🆕 V4.6.2 — Velocity & Macro Strike Engine
-
-V4.6.2 adds two new kinetic strike modes on top of the stable V4.5.0 foundation.
-
-### New in V4.6.2
-
-| Feature | Description |
-|---|---|
-| **Velocity Strike** | Flash-burst detection — bans IPs that exceed 5 hits/second instantly |
-| **Macro Strike** | /16 sector kill — terminates entire provider blocks when roaming scanners are detected |
-| **O(1) Time-Bucketing** | Burst tracking uses log timestamps — zero CPU overhead |
-| **Extended TUI** | New BURST and /16 SEKTOR columns in the live dashboard |
+**This is the current release.** V4.7.0 brings a complete terminal UI overhaul and real-time port mapping on top of the V4.6.2 foundation.
 
 ### All Features
 
 | Feature | Description |
 |---|---|
+| **Supreme Terminal UI** | Full Unicode box-drawing table — professional terminal dashboard |
+| **Port Mapping** | See exactly which service attackers are targeting — `[WEB]`, `[SSH]`, `[FTP]`, `[PNL]`, `[NET]` |
+| **Status Column** | Real-time status per IP: `TRACKING` → `FLASH` → `IP-KILL` → `RNG-KILL` → `MAC-KILL` |
+| **Strike Icons** | `[⚡]` Velocity · `[✖]` Terminated · `[☢]` Infra-Strike · `[☠]` Macro-Strike |
+| **Velocity Strike** | Flash-burst detection — bans IPs that exceed 5 hits/second instantly |
+| **Macro Strike** | /16 sector kill — terminates entire provider blocks when roaming scanners are detected |
+| **O(1) Time-Bucketing** | Burst tracking uses log timestamps — zero CPU overhead |
 | **Forgiveness Protocol** | All bans expire after 24h automatically — no permanent lockouts |
 | **Dynamic Port Chunking** | iptables multiport handles max 15 ports per rule — auto-chunked |
 | **Log Rate Limiting** | 50 logs/second max — protects disk/SSD from log floods |
@@ -113,7 +102,6 @@ V4.6.2 adds two new kinetic strike modes on top of the stable V4.5.0 foundation.
 | **Subnet Whitelist in AWK** | /24 ranges evaluated directly in the stream processor |
 | **IPv6 Dual-Stack** | Full IPv4 + IPv6 monitoring and termination |
 | **SSH Anti-Freeze** | Heartbeat every 45s prevents SSH timeout on long sessions |
-| **TUI Matrix** | Alternate screen buffer, RGB ANSI, zero flicker |
 
 ---
 
@@ -149,54 +137,79 @@ After 24h → ban expires automatically (Forgiveness Protocol)
 
 ## 🛡️ Four Strike Modes
 
-### Velocity Strike — Flash Burst ⚡ NEW in V4.6.2
+### Velocity Strike — Flash Burst ⚡
 When a single IP exceeds `VELOCITY_LIMIT` (default: 5 hits/second), it is terminated instantly. Catches automated scanners that fire in rapid bursts.
 
 ```
-[!!!] VELOCITY STRIKE: IP 185.220.101.47 terminiert (Flash-Burst erkannt: 7 Hits/sek).
+[⚡] VELOCITY STRIKE: IP 185.220.101.47 terminiert (Flash-Burst erkannt: 7 Hits/sek).
 ```
 
 ### Surgical Strike — Single IP
 When a single IP exceeds `IP_THRESHOLD` (default: 15 hits), it is added to the ipset with a 24h timeout.
 
 ```
-[!!!] TERMINIERT: IP 185.220.101.47 für 24h hingerichtet.
+[✖] TERMINIERT: IP 185.220.101.47 für 24h hingerichtet.
 ```
 
 ### Infrastructure Strike — /24 Subnet
 When hits from the same /24 subnet exceed `RANGE_THRESHOLD` (default: 30 hits), the entire subnet is banned. Catches coordinated botnet attacks that rotate IPs within the same provider block.
 
 ```
-[!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
+[☢] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
 ```
 
-### Macro Strike — /16 Sector ☢️ NEW in V4.6.2
+### Macro Strike — /16 Sector ☠️
 When hits from the same /16 sector exceed `WIDE_RANGE_THRESHOLD` (default: 150 hits), the entire provider sector is banned. Catches roaming scanners that spread across multiple /24 blocks.
 
 ```
-[!!!] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).
+[☠] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).
 ```
 
-> **Real-world example:** A coordinated botnet distributed its traffic across `177.23.200.x` through `177.23.207.x`. Auto-Punisher detected the subnet pattern, terminated 5 complete /24 ranges — and would now also trigger a /16 Macro Strike on the entire `177.23.0.0/16` sector.
+> **Real-world example:** A coordinated botnet distributed its traffic across `177.23.200.x` through `177.23.207.x`. Auto-Punisher detected the subnet pattern, terminated 5 complete /24 ranges — and triggered a /16 Macro Strike on the entire `177.23.0.0/16` sector.
 
 ---
 
 ## 🖥️ TUI Matrix Dashboard
 
 ```
-████████████████████████████████████████████████████████████████████████████████████████████
-   VGT AUTO-PUNISHER V4.6.2 - VELOCITY & MACRO STRIKE ENGINE
-████████████████████████████████████████████████████████████████████████████████████████████
-ZEITSTEMPEL         | QUELL-IP        |  Ziel (Port) |  BURST | HITS | /24 RANGE | /16 SEKTOR
----------------------------------------------------------------------------------------------
-Mar 19 03:12:44     | 185.220.101.47  |              |    3 |   12 |        18 |     47    |  
-Mar 19 03:12:44     | 177.23.200.63   |              |    7 |    1 |        28 |     142   |  
-
-[!!!] VELOCITY STRIKE: IP 177.23.200.63 terminiert (Flash-Burst erkannt: 7 Hits/sek).
-[!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
-[!!!] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   VGT AUTO-PUNISHER V4.7.0 - SUPREME TERMINAL DASHBOARD (L4 KINETICS)                               │
+├───────────────────┬────────────────────────┬─────────────┬───────┬──────┬────────┬────────┬──────────┤
+│ ZEITSTEMPEL       │ QUELL-IP               │ ZIEL (PORT) │ BURST │ HITS │ R-HITS │ S-HITS │ STATUS   │
+├───────────────────┼────────────────────────┼─────────────┼───────┼──────┼────────┼────────┼──────────┤
+│ Mar 20 16:21:22   │ 177.23.200.63          │ 443 [WEB]   │     7 │    7 │     67 │     67 │ FLASH    │
+│ Mar 20 16:21:22   │ 185.220.101.47         │ 22  [SSH]   │     3 │   12 │     18 │     47 │ TRACKING │
+│ Mar 20 16:21:22   │ 14.103.105.40          │ 80  [WEB]   │     1 │    1 │      1 │      1 │ TRACKING │
+├───────────────────┴────────────────────────┴─────────────┴───────┴──────┴────────┴────────┴──────────┤
+│ [⚡] VELOCITY STRIKE: IP 177.23.200.63 terminiert (Flash-Burst erkannt: 7 Hits/sek).                 │
+├───────────────────┬────────────────────────┬─────────────┬───────┬──────┬────────┬────────┬──────────┤
+│ [☢] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.                                         │
+├───────────────────┴────────────────────────┴─────────────┴───────┴──────┴────────┴────────┴──────────┤
+│ [☠] MACRO-SCHLAG: Sektor 177.23.0.0/16 terminiert (Roaming-Scanner erkannt).                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+**Port Color Mapping:**
+
+| Color | Ports | Label | Meaning |
+|---|---|---|---|
+| 🔵 Cyan | 80, 443, 8443 | `[WEB]` | Web traffic |
+| 🟣 Purple | 22, 2222 | `[SSH]` | SSH access |
+| 🟡 Yellow | 21 | `[FTP]` | FTP legacy |
+| 🟡 Yellow | 3306, 888 | `[PNL]` | Database / Panel |
+| ⚪ White | Any other | `[NET]` | Generic network |
+
+**Status Column:**
+
+| Status | Color | Meaning |
+|---|---|---|
+| `TRACKING` | Gray | Monitoring — below thresholds |
+| `FLASH` | Red | Velocity Strike imminent |
+| `IP-KILL` | Red | Single IP banned |
+| `RNG-KILL` | Red | /24 Range banned |
+| `MAC-KILL` | Purple | /16 Sector banned |
+
+- **Full Unicode box-drawing** — professional terminal dashboard
 - **RGB ANSI colors** — IPs turn red as they approach the ban threshold
 - **Alternate screen buffer** — clean exit, terminal restored on CTRL+C
 - **SSH Anti-Freeze Heartbeat** — saves/restores cursor every 45s
@@ -267,7 +280,6 @@ sudo ./auto-punisher4-6-2.sh
 sudo ./punisher4-7.sh
 ```
 
-
 ### What happens on first run
 
 ```
@@ -328,14 +340,16 @@ ip6tables-restore < /etc/iptables/rules.v6
 ## 📦 System Specs
 
 ```
-VERSION           4.6.2 (Velocity & Macro Strike Engine)
+VERSION           4.7.0 (Supreme Terminal UI & Port Mapping)
 ARCHITECTURE      Hybrid (iptables + ipset + journalctl + AWK)
 SENSOR            Passive LOG on selected ports (scoped, rate-limited)
 BAN_MECHANISM     ipset hash:net with 24h timeout (Forgiveness Protocol)
 BAN_DURATION      24 hours (configurable via BAN_TIME)
 STRIKE_MODES      4: Velocity + Surgical + Infrastructure + Macro
+STRIKE_ICONS      [⚡] Velocity · [✖] Terminated · [☢] Infra · [☠] Macro
 VELOCITY_LIMIT    5 hits/second (Flash-Burst detection)
 WIDE_RANGE        /16 sector kill at 150 hits (Roaming-Scanner)
+PORT_MAPPING      [WEB] [SSH] [FTP] [PNL] [NET] with color coding
 DPI               INVALID state, XMAS, NULL scan, MSS anomaly
 PERSISTENCE       iptables-save after every ban
 IPv4_RANGES       /24 + /16 subnet ban via AWK
@@ -384,8 +398,8 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 
 VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
 
-> *"Tino wanted to throw the script away. V4.5.0 terminated a ByteDance botnet and 5 coordinated /24 ranges instead."* 😄
+> *"Tino wanted to throw the script away. V4.7.0 terminated a ByteDance botnet, 5 coordinated /24 ranges — and looks damn good doing it."* 😄
 
 ---
 
-*Version 4.6.2 (VELOCITY & MACRO STRIKE ENGINE) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
+*Version 4.7.0 (SUPREME TERMINAL UI) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
