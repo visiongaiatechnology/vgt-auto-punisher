@@ -13,7 +13,7 @@
 > *"Don't rate-limit attackers. Terminate them."*
 > *AGPLv3 — For Humans, not for SaaS Corporations.*
 
-**V4.5.0 is the official stable release of VGT Auto-Punisher.** This is the version we run in production.
+**V4.7.0 is the official stable release of VGT Auto-Punisher.** This is the version we run in production.
 
 ---
 
@@ -184,13 +184,13 @@ When hits from the same /16 sector exceed `WIDE_RANGE_THRESHOLD` (default: 150 h
 ## 🖥️ TUI Matrix Dashboard
 
 ```
-████████████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████████████████████████████████████████████████████████████
    VGT AUTO-PUNISHER V4.6.2 - VELOCITY & MACRO STRIKE ENGINE
-████████████████████████████████████████████████████████████████████████████████████
-ZEITSTEMPEL         | QUELL-IP        | BURST | HITS | /24 RANGE | /16 SEKTOR
-------------------------------------------------------------------------------------
-Mar 19 03:12:44     | 185.220.101.47  |     3 |   12 |        18 |         47
-Mar 19 03:12:44     | 177.23.200.63   |     7 |    1 |        28 |        142
+████████████████████████████████████████████████████████████████████████████████████████████
+ZEITSTEMPEL         | QUELL-IP        |  Ziel (Port) |  BURST | HITS | /24 RANGE | /16 SEKTOR
+---------------------------------------------------------------------------------------------
+Mar 19 03:12:44     | 185.220.101.47  |              |    3 |   12 |        18 |     47    |  
+Mar 19 03:12:44     | 177.23.200.63   |              |    7 |    1 |        28 |     142   |  
 
 [!!!] VELOCITY STRIKE: IP 177.23.200.63 terminiert (Flash-Burst erkannt: 7 Hits/sek).
 [!!!] INFRA-SCHLAG: Range 177.23.200.0/24 für 24h terminiert.
@@ -237,6 +237,8 @@ nano auto_punisher_titan3.sh
 nano auto-punisher4.sh
 # Auto Punisher 4.6.2
 nano auto-punisher4-6-2.sh
+# Auto Punisher 4.7
+nano punisher4-7.sh
 
 # Edit: readonly WHITELIST_IPS="... YOUR.IP.0/24"
 
@@ -249,6 +251,8 @@ chmod +x auto_punisher_titan3.sh
 chmod +x auto-punisher4.sh
 # Auto Punisher 4.6.2
 chmod auto-punisher4-6-2.sh
+# Auto Punisher 4.7
+chmod punisher4-7.sh
 
 # 4. Run
 # Auto Punisher 3
@@ -259,6 +263,8 @@ sudo ./auto_punisher_titan3.sh
 sudo ./auto-punisher4.sh
 # Auto Punisher 4.6.2
 sudo ./auto-punisher4-6-2.sh
+# Auto Punisher 4.7
+sudo ./punisher4-7.sh
 ```
 
 
