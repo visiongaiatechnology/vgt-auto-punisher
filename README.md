@@ -89,7 +89,7 @@ ip6tables -F INPUT
 
 ## 🆕 V4.6.2 — Velocity & Macro Strike Engine
 
-**This is the current release.** V4.6.2 adds two new kinetic strike modes on top of the stable V4.5.0 foundation.
+V4.6.2 adds two new kinetic strike modes on top of the stable V4.5.0 foundation.
 
 ### New in V4.6.2
 
