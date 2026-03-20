@@ -43,6 +43,20 @@ readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 2a02:xxxx:xxxx:xxxx::
 
 > **Why /24?** Many ISPs rotate your IP within a /24 subnet block. If you whitelist only a single IP and your ISP assigns you a new one, you will be locked out on the next session.
 
+### Set your Limits  ⚠️
+
+```bash
+# --- VGT PARAMETER ---
+readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban
+readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
+readonly WIDE_RANGE_THRESHOLD=150  # Globales Sektor-Limit (/16) für Roaming-Scans
+readonly VELOCITY_LIMIT=5          # Max Hits pro Sekunde (Flash-Burst Schutz)
+readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer
+readonly LOG_PREFIX="[VGT_STRIKE]"
+readonly IPSET_V4="VGT_BANNED_V4"
+readonly IPSET_V6="VGT_BANNED_V6"
+```
+
 ### 🆘 Already Locked Out?
 
 Use your hosting provider's emergency console **(Strato KVM, Hetzner Console, netcup KVM, etc.)** and run:
