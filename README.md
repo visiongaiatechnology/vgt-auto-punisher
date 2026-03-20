@@ -74,6 +74,18 @@ ip6tables -F INPUT
 > **Note:** V4.5.0 introduces the **Forgiveness Protocol** — all bans automatically expire after 24 hours. Even if you get locked out, you will regain access within 24h without any manual intervention.
 
 ---
+## 🆕 V4.7 — UI Update and Port Mapping
+
+**This is the current release.** V4.7 adds a new UI and Port Mapping
+
+### New in V4.7
+
+| Feature | Description |
+|---|---|
+| **Port Mapping** | Now see where the IP addresses were trying to access |
+| **UI Update** | New UI for an even better experience |
+
+
 
 ## 🆕 V4.6.2 — Velocity & Macro Strike Engine
 
