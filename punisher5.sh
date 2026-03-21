@@ -9,16 +9,18 @@
 set -Eeuo pipefail
 
 # --- VGT PARAMETER ---
-readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
-readonly L7_STRIKE_THRESHOLD=3     # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
-readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
+readonly IP_THRESHOLD=25           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
+readonly L7_STRIKE_THRESHOLD=10     # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
+readonly RANGE_THRESHOLD=40        # Hits bis zum /24 Subnetz Ban (v4)
 readonly WIDE_RANGE_THRESHOLD=150  # Globales Sektor-Limit (/16)
-readonly VELOCITY_LIMIT=5          # Max Hits pro Sekunde
+readonly VELOCITY_LIMIT=10          # Max Hits pro Sekunde
 readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer
 readonly LOG_PREFIX="[VGT_STRIKE]"
 readonly L7_PREFIX="[VGT_L7]"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
+
+
 
 
 
@@ -28,7 +30,9 @@ readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
 
 # HIER DEINE ERLAUBTEN DOMAINS EINTRAGEN (Leerzeichen getrennt)
 
-readonly WHITELIST_DOMAINS="example.de www.example.de" 
+readonly WHITELIST_DOMAINS="example.de www.example.de"
+
+
 
 
 # --- VGT HIGH-END UI DESIGN (ANSI) ---
@@ -312,6 +316,7 @@ function start_hunt() {
             domain_label = "N/A (L4 SYN)";
             domain_col = c_gry;
             is_l7_strike = 0;
+            foreign_domain = "";
             
             if ($0 ~ /VGT_L7/) {
                 match($0, /DOMAIN=([^ ]+)/, arr_dom); 
@@ -320,13 +325,20 @@ function start_hunt() {
                 if (valid_domains[tolower(domain_val)]) {
                     domain_label = domain_val;
                     domain_col = c_grn; # Legit Domain
-                } else {
+                } else if (domain_val == "DIRECT_IP_OR_MALFORMED") {
+                    # VEKTOR A: Mobile Background Noise (Toleranz-Limit greift)
                     domain_label = substr(domain_val, 1, 18);
                     domain_col = c_red;
                     l7_viol[ip]++;
                     if (l7_viol[ip] >= l7_limit) {
-                        is_l7_strike = 1; # Illegitime Domain Limit erreicht
+                        is_l7_strike = 1; 
                     }
+                } else {
+                    # VEKTOR B: Intentionale Fremde Domain = Instant Kill (Scanner/Spoofer)
+                    domain_label = substr(domain_val, 1, 18);
+                    domain_col = c_red;
+                    is_l7_strike = 2;
+                    foreign_domain = domain_val;
                 }
             }
 
@@ -344,7 +356,7 @@ function start_hunt() {
 
             # STATUS RESOLUTION
             status_msg = "TRACKING"; status_col = c_gry;
-            if (is_l7_strike) { status_msg = "DOM-KILL"; status_col = c_red; }
+            if (is_l7_strike > 0) { status_msg = "DOM-KILL"; status_col = c_red; }
             else if (svc == "[SSH]") { status_msg = "SSH-KILL"; status_col = c_pur; }
             else if (ip_burst >= v_limit) { status_msg = "FLASH"; status_col = c_red; }
             else if (l7_viol[ip] > 0 && l7_viol[ip] < l7_limit) { status_msg = "L7-WARN"; status_col = c_ylw; }
@@ -379,10 +391,14 @@ function start_hunt() {
 
             # --- KINETIC STRIKES (EXECUTION) ---
             
-            # 0. L7 DOMAIN STRIKE (Instant Kill bei direkt IP / Falscher Domain)
-            if (is_l7_strike && !killed[ip]) {
+            # 0. L7 DOMAIN STRIKE (Instant Kill bei Fremder Domain ODER Limit-Überschreitung)
+            if (is_l7_strike > 0 && !killed[ip]) {
                 killed[ip] = 1;
-                msg = "SNI/HOST VIOLATION: IP " ip " terminiert (" l7_viol[ip] "x illegaler L7 Zugriff).";
+                if (is_l7_strike == 2) {
+                    msg = "SNI SPOOFING: IP " ip " terminiert (Fremde Domain: " foreign_domain ").";
+                } else {
+                    msg = "SNI/HOST VIOLATION: IP " ip " terminiert (" l7_viol[ip] "x illegaler L7 Zugriff).";
+                }
                 print_kill("[🎯]", msg, c_red);
                 system("ipset add " target_set " " ip " -exist");
                 system(save_cmd " 2>/dev/null || true");
