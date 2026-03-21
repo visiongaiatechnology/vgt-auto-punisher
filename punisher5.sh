@@ -9,7 +9,7 @@
 set -Eeuo pipefail
 
 # --- VGT PARAMETER ---
-readonly IP_THRESHOLD=25           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
+readonly IP_THRESHOLD=35           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
 readonly L7_STRIKE_THRESHOLD=10    # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
 readonly RANGE_THRESHOLD=45        # Hits bis zum /24 Subnetz Ban (v4)
 readonly WIDE_RANGE_THRESHOLD=77   # Globales Sektor-Limit (/16)
@@ -20,13 +20,19 @@ readonly L7_PREFIX="[VGT_L7]"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
 
+
+
 # --- VGT MASTER WHITELISTS (GEHÄRTET) ---
 
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
 
 # HIER DEINE ERLAUBTEN DOMAINS EINTRAGEN (Leerzeichen getrennt)
 
-readonly WHITELIST_DOMAINS="example.de www.example.de"
+readonly WHITELIST_DOMAINS="example.de example.com"
+
+
+
+
 
 
 # --- VGT HIGH-END UI DESIGN (ANSI) ---
@@ -153,21 +159,31 @@ function init_defense() {
         fi
     done
 
-    if ! iptables -C INPUT -m state --state INVALID -j DROP >/dev/null 2>&1; then
-        iptables -I INPUT 2 -m state --state INVALID -j DROP
-        iptables -I INPUT 3 -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP 
-        iptables -I INPUT 4 -p tcp --tcp-flags ALL NONE -j DROP        
-        iptables -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
-    fi
+    # DPI Sanitization (Dual-Stack Mirroring für IPv4 & IPv6)
+    for cmd in "iptables" "ip6tables"; do
+        if ! $cmd -C INPUT -m state --state INVALID -j DROP >/dev/null 2>&1; then
+            $cmd -I INPUT 2 -m state --state INVALID -j DROP
+            $cmd -I INPUT 3 -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP 
+            $cmd -I INPUT 4 -p tcp --tcp-flags ALL NONE -j DROP        
+            $cmd -I INPUT 5 -p tcp --tcp-flags SYN,RST SYN -m tcpmss ! --mss 536:65535 -j DROP
+        fi
+    done
 
     if [[ -n "$L4_PORTS" ]]; then
         IFS=',' read -r -a port_array <<< "$L4_PORTS"
         chunk_size=14
         for ((i=0; i<${#port_array[@]}; i+=chunk_size)); do
             chunk=$(IFS=, ; echo "${port_array[*]:i:chunk_size}")
+            
+            # VGT: IPv4 LOG Sensor Injektion
             while iptables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
             while iptables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
             iptables -I INPUT 6 -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX "
+
+            # VGT: IPv6 LOG Sensor Injektion (Fix für unsichtbaren Google/Gmail Traffic)
+            while ip6tables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
+            while ip6tables -D INPUT -p tcp -m multiport --dports "$chunk" ! -i lo --syn -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
+            ip6tables -I INPUT 6 -p tcp -m multiport --dports "$chunk" ! -i lo --syn -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX "
         done
     fi
 
@@ -207,7 +223,8 @@ function start_hunt() {
             c_ylw = "\033[38;2;255;204;0m"; c_red = "\033[38;2;255;51;102m"; c_pur = "\033[38;2;180;0;255m";
             c_grn = "\033[38;2;0;255;153m"; c_wht = "\033[38;2;255;255;255m"; c_bld = "\033[1m";
             
-            stat_ip = 0; stat_dom = 0; stat_flash = 0; stat_ssh = 0; stat_infra = 0; stat_macro = 0; stat_total = 0;
+            # VGT: stat_ssh auf stat_sys (System Kills) aktualisiert
+            stat_ip = 0; stat_dom = 0; stat_flash = 0; stat_sys = 0; stat_infra = 0; stat_macro = 0; stat_total = 0;
             current_time = "00:00:00";
             
             LOG_MAX = 14; KILL_MAX = 5;
@@ -239,7 +256,8 @@ function start_hunt() {
             print c_cyn "│" c_pur "  ╚██╗ ██╔╝██║  ███╗   ██║     " c_gry sprintf("%-101s", "-----------------------------------------------------------------------------------------------------") c_res c_cyn "│" c_res;
             
             stats_a = sprintf("[X] IP-KILLS: %-5d |  [🎯] DOM-KILLS: %-5d", stat_ip, stat_dom);
-            stats_b = sprintf("[⚡] FLASH: %-8d |  [🔐] SSH-SNIPES: %-4d", stat_flash, stat_ssh);
+            # VGT: Live-Stats Panel auf SYS-SNIPES geändert
+            stats_b = sprintf("[⚡] FLASH: %-8d |  [🔐] SYS-SNIPES: %-4d", stat_flash, stat_sys);
             stats_c = sprintf("[☢] INFRA (/24): %-3d |  [☠] MACRO (/16): %-4d", stat_infra, stat_macro);
             
             print c_cyn "│" c_pur "   ╚████╔╝ ██║   ██║   ██║     " c_red sprintf("%-43s", stats_a) c_ylw sprintf("%-58s", stats_b) c_res c_cyn "│" c_res;
@@ -314,6 +332,10 @@ function start_hunt() {
             match($0, /DPT=([0-9]+)/, arr_dpt); dpt = arr_dpt[1];
             tgt_color = c_gry;
             if (dpt == "80" || dpt == "443" || dpt == "8443") { tgt_color = c_cyn; svc = "[WEB]"; }
+            # VGT BIFURKATION: Port 25 (Public Mail Routing = Tolerant)
+            else if (dpt == "25") { tgt_color = c_grn; svc = "[SMTP]"; }
+            # VGT BIFURKATION: Client Ports (IMAP/POP/Submission = Zero-Trust)
+            else if (dpt == "465" || dpt == "587" || dpt == "143" || dpt == "993" || dpt == "110" || dpt == "995") { tgt_color = c_ylw; svc = "[SEC-MAIL]"; }
             else if (dpt == "22" || dpt == "2222") { tgt_color = c_pur; svc = "[SSH]"; }
             else if (dpt == "21") { tgt_color = c_ylw; svc = "[FTP]"; }
             else if (dpt == "3306" || dpt == "888") { tgt_color = c_ylw; svc = "[PNL]"; }
@@ -342,7 +364,8 @@ function start_hunt() {
 
             status_msg = "TRACKING"; status_col = c_gry;
             if (is_l7_strike > 0) { status_msg = "DOM-KILL"; status_col = c_red; }
-            else if (svc == "[SSH]") { status_msg = "SSH-KILL"; status_col = c_pur; }
+            # VGT ZERO-TRUST: ALLES was nicht [WEB] oder [SMTP] ist, ist ein Instant-Kill (Inklusive [SEC-MAIL])
+            else if (svc != "[WEB]" && svc != "[SMTP]") { status_msg = "SYS-KILL"; status_col = c_pur; }
             else if (ip_burst >= v_limit) { status_msg = "FLASH"; status_col = c_red; }
             else if (l7_viol[ip] > 0 && l7_viol[ip] < l7_limit) { status_msg = "L7-WARN"; status_col = c_ylw; }
             else if (ip_count[ip] >= ip_limit) { status_msg = "IP-KILL"; status_col = c_red; }
@@ -391,9 +414,10 @@ function start_hunt() {
                 system("ipset add " target_set " " ip " -exist"); system(save_cmd " 2>/dev/null || true");
                 ip_count[ip] = -999; burst_count[sec_key] = -999;
             }
-            else if (svc == "[SSH]" && !killed[ip]) {
-                killed[ip] = 1; stat_ssh++;
-                push_kill("[🔐]", "ZERO-TOLERANCE: IP " ip " eliminiert (Illegaler SSH-Scan).", c_pur);
+            # VGT ZERO-TRUST STRIKE: Gnadenlose Eliminierung bei jedem non-web/non-smtp Port (Driftnet & Co auf IMAP/POP)
+            else if (svc != "[WEB]" && svc != "[SMTP]" && !killed[ip]) {
+                killed[ip] = 1; stat_sys++;
+                push_kill("[🔐]", "ZERO-TOLERANCE: IP " ip " eliminiert (Illegaler " svc "-Scan auf Port " dpt ").", c_pur);
                 system("ipset add " target_set " " ip " -exist"); system(save_cmd " 2>/dev/null || true");
                 ip_count[ip] = -999; burst_count[sec_key] = -999;
             }
