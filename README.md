@@ -171,11 +171,12 @@ journalctl -f --grep="($LOG_PREFIX|VGT_L7)"
 ### Set your Limits
 
 ```bash
-readonly IP_THRESHOLD=15           # Hits until single IP ban
-readonly RANGE_THRESHOLD=30        # Hits until /24 subnet ban
-readonly WIDE_RANGE_THRESHOLD=150  # Hits until /16 sector ban
-readonly VELOCITY_LIMIT=5          # Max hits/second (Flash-Burst)
-readonly BAN_TIME=86400            # Ban duration: 24 hours
+readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
+readonly L7_STRIKE_THRESHOLD=3     # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
+readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
+readonly WIDE_RANGE_THRESHOLD=150  # Globales Sektor-Limit (/16)
+readonly VELOCITY_LIMIT=5          # Max Hits pro Sekunde
+readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer
 ```
 
 ### 🆘 Already Locked Out?
