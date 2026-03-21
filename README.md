@@ -2,10 +2,11 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-4.7.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-4.7.3-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-Hybrid_Supreme-red?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![DPI](https://img.shields.io/badge/DPI-ENABLED-purple?style=for-the-badge)](#)
+[![SSH](https://img.shields.io/badge/SSH-ZERO_TOLERANCE-red?style=for-the-badge)](#)
 [![Status](https://img.shields.io/badge/Status-STABLE-brightgreen?style=for-the-badge)](#)
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
@@ -13,7 +14,7 @@
 > *"Don't rate-limit attackers. Terminate them."*
 > *AGPLv3 — For Humans, not for SaaS Corporations.*
 
-**V4.7.0 is the official stable release of VGT Auto-Punisher.** This is the version we run in production.
+**V4.7.3 is the official stable release of VGT Auto-Punisher.** This is the version we run in production.
 
 ---
 
@@ -73,14 +74,30 @@ ip6tables -F INPUT
 
 > **Note:** V4.5.0 introduces the **Forgiveness Protocol** — all bans automatically expire after 24 hours. Even if you get locked out, you will regain access within 24h without any manual intervention.
 
-<img width="862" height="411" alt="{D313F70E-D46F-4D37-89E1-A5958031542E}" src="https://github.com/user-attachments/assets/2283523a-be8a-4b17-a694-54042fe4dbee" />
+---
 
+## 🆕 V4.7.3 — Supreme Auto-Pilot & SSH Zero-Tolerance
+
+**This is the current release.** V4.7.3 adds Auto-Pilot port detection and SSH Zero-Tolerance on top of the V4.7.0 foundation.
+
+| Feature | Description |
+|---|---|
+| **Auto-Pilot Mode** | No prompt on startup — all active ports detected and monitored automatically via `ss -tlnp` |
+| **SSH Zero-Tolerance** | Any SSH connection attempt from a non-whitelisted IP is terminated instantly — 0 hits tolerance |
+| **systemd Support** | Runs as a persistent background service — auto-starts after boot and Strato reboots |
+| **`[🔐]` Strike Icon** | New icon for SSH Zero-Tolerance kills |
+
+```
+[🔐] ZERO-TOLERANCE: IP 185.220.101.47 terminiert (Illegaler SSH-Zugriff).
+```
+
+> **Logic:** If you have legitimate SSH access, your IP is on the whitelist. Anyone else touching port 22 has no business there.
 
 ---
 
 ## 🆕 V4.7.0 — Supreme Terminal UI & Port Mapping
 
-**This is the current release.** V4.7.0 brings a complete terminal UI overhaul and real-time port mapping on top of the V4.6.2 foundation.
+V4.7.0 brings a complete terminal UI overhaul and real-time port mapping on top of the V4.6.2 foundation.
 
 ### All Features
 
@@ -208,6 +225,7 @@ When hits from the same /16 sector exceed `WIDE_RANGE_THRESHOLD` (default: 150 h
 | `IP-KILL` | Red | Single IP banned |
 | `RNG-KILL` | Red | /24 Range banned |
 | `MAC-KILL` | Purple | /16 Sector banned |
+| `SSH-KILL` | Purple | SSH Zero-Tolerance — instant ban |
 
 - **Full Unicode box-drawing** — professional terminal dashboard
 - **RGB ANSI colors** — IPs turn red as they approach the ban threshold
@@ -252,6 +270,8 @@ nano auto-punisher4.sh
 nano auto-punisher4-6-2.sh
 # Auto Punisher 4.7
 nano punisher4-7.sh
+# Auto Punisher 4.7.3 (Auto-Pilot + SSH Zero-Tolerance)
+nano punisher47ssh.sh
 
 # Edit: readonly WHITELIST_IPS="... YOUR.IP.0/24"
 
@@ -266,6 +286,8 @@ chmod +x auto-punisher4.sh
 chmod auto-punisher4-6-2.sh
 # Auto Punisher 4.7
 chmod punisher4-7.sh
+# Auto Punisher 4.7.3
+chmod +x punisher47ssh.sh
 
 # 4. Run
 # Auto Punisher 3
@@ -278,6 +300,8 @@ sudo ./auto-punisher4.sh
 sudo ./auto-punisher4-6-2.sh
 # Auto Punisher 4.7
 sudo ./punisher4-7.sh
+# Auto Punisher 4.7.3 (Auto-Pilot)
+sudo ./punisher47ssh.sh
 ```
 
 ### What happens on first run
@@ -291,6 +315,69 @@ sudo ./punisher4-7.sh
 6. Injects scoped LOG sensor (rate-limited to 50/s)
 7. Starts live AWK analysis stream
 ```
+
+---
+
+## ⚙️ Run as systemd Service (Auto-Pilot Mode)
+
+V4.7.3 is designed to run as a persistent background service — no terminal required, auto-starts after every reboot.
+
+### Service Unit
+
+Create `/etc/systemd/system/vgt-punisher.service`:
+
+```ini
+# ==============================================================================
+# VISIONGAIA TECHNOLOGY: SYSTEMD SERVICE UNIT
+# ZWECK: Automatischer Start des VGT Punishers nach Boot & Strato-Reboot
+# ==============================================================================
+
+[Unit]
+Description=VGT Auto-Punisher Autonomous Defense
+After=network-online.target netfilter-persistent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /root/vgt_punisher.sh
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+SyslogIdentifier=vgt-punisher
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Installation
+
+```bash
+# Step 1 — Deploy the script
+cp punisher47ssh.sh /root/vgt_punisher.sh
+chmod +x /root/vgt_punisher.sh
+
+# Step 2 — Create the service file
+nano /etc/systemd/system/vgt-punisher.service
+# (paste the service unit above)
+
+# Step 3 — Enable and start
+systemctl daemon-reload
+systemctl enable vgt-punisher
+systemctl start vgt-punisher
+
+# Step 4 — Verify it's running
+systemctl status vgt-punisher
+```
+
+### Live Monitoring (Background Mode)
+
+Even when running as a service in the background, you can watch the live dashboard at any time:
+
+```bash
+journalctl -u vgt-punisher -f -o cat
+```
+
+> The full TUI dashboard streams directly to the journal — RGB colors, Unicode tables and all kill messages appear in real-time.
 
 ---
 
@@ -340,13 +427,13 @@ ip6tables-restore < /etc/iptables/rules.v6
 ## 📦 System Specs
 
 ```
-VERSION           4.7.0 (Supreme Terminal UI & Port Mapping)
+VERSION           4.7.3 (Supreme Auto-Pilot + SSH Zero-Tolerance)
 ARCHITECTURE      Hybrid (iptables + ipset + journalctl + AWK)
 SENSOR            Passive LOG on selected ports (scoped, rate-limited)
 BAN_MECHANISM     ipset hash:net with 24h timeout (Forgiveness Protocol)
 BAN_DURATION      24 hours (configurable via BAN_TIME)
 STRIKE_MODES      4: Velocity + Surgical + Infrastructure + Macro
-STRIKE_ICONS      [⚡] Velocity · [✖] Terminated · [☢] Infra · [☠] Macro
+STRIKE_ICONS      [⚡] Velocity · [✖] Terminated · [☢] Infra · [☠] Macro · [🔐] SSH-Kill
 VELOCITY_LIMIT    5 hits/second (Flash-Burst detection)
 WIDE_RANGE        /16 sector kill at 150 hits (Roaming-Scanner)
 PORT_MAPPING      [WEB] [SSH] [FTP] [PNL] [NET] with color coding
@@ -358,6 +445,9 @@ TCP_HARDENING     BBR, syncookies, SYN backlog, FQ qdisc
 LOG_PROTECTION    Rate-limited to 50/s, burst 100
 PORT_CHUNKING     Auto-chunked into groups of 14 (iptables limit)
 SSH_SAFETY        Heartbeat + 24h auto-expiry + whitelist
+SSH_TOLERANCE     Zero — any non-whitelisted SSH attempt = instant ban
+AUTO_PILOT        No prompt — all ports auto-detected on startup
+SERVICE_MODE      systemd compatible — runs as persistent background service
 OVERHEAD          ~0% CPU idle (event-driven, no polling)
 ```
 
@@ -398,8 +488,8 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 
 VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
 
-> *"Tino wanted to throw the script away. V4.7.0 terminated a ByteDance botnet, 5 coordinated /24 ranges — and looks damn good doing it."* 😄
+> *"Tino wanted to throw the script away. V4.7.3 runs as a systemd service, terminates SSH on first contact, and looks damn good doing it."* 😄
 
 ---
 
-*Version 4.7.0 (SUPREME TERMINAL UI) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
+*Version 4.7.3 (SUPREME AUTO-PILOT + SSH ZERO-TOLERANCE) — VGT Auto-Punisher // Passive Radar + DPI + Kernel Hardening*
