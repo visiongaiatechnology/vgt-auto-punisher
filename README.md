@@ -60,7 +60,8 @@ Flash-burst → instant ban [⚡]
 |---|---|
 | **L7 Ghost Sensor** | Python Raw Socket reads TLS SNI + HTTP Host directly off the wire — zero overhead |
 | **Domain Whitelisting** | Only whitelisted domains are allowed — everything else triggers instant ban |
-| **Direct IP Kill** | Any connection to the server IP without a valid domain → `[🎯]` DOM-KILL instantly |
+| **SNI Spoofing Kill** | Any foreign/unknown domain → `[🎯]` DOM-KILL instantly — no tolerance |
+| **Mobile Noise Tolerance** | `DIRECT_IP_OR_MALFORMED` (mobile reconnects, TLS resumption) → 3 strikes before ban |
 | **L4 + L7 Hybrid** | Web ports (80/443/8443) use L7 Ghost, all other ports use L4 SYN tracking |
 | **Auto-Pilot Mode** | No prompt on startup — all ports detected and split automatically |
 | **SSH Zero-Tolerance** | First SSH packet from unknown IP → instant ban — 0 hits tolerance |
@@ -80,8 +81,9 @@ Flash-burst → instant ban [⚡]
 ### Strike Priority Order
 
 ```
-[🎯] DOM-KILL     Priority 0 — Direct IP / unknown domain → instant
-[🔐] SSH-KILL     Priority 1 — SSH from non-whitelisted IP → instant
+[🎯] DOM-KILL     Priority 0a — Foreign/unknown domain (SNI Spoofing) → instant
+[🎯] DOM-KILL     Priority 0b — DIRECT_IP_OR_MALFORMED → after 3 hits (mobile tolerance)
+[🔐] SSH-KILL     Priority 1  — SSH from non-whitelisted IP → instant
 [⚡] VELOCITY     Priority 2 — Flash-burst > 5 hits/sec → instant
 [✖] RATE-LIMIT    Priority 3 — > 15 hits (whitelisted domains only)
 [☢] INFRA         Priority 4 — /24 subnet threshold
@@ -91,8 +93,8 @@ Flash-burst → instant ban [⚡]
 ### New TUI Dashboard (V5)
 
 ```
-╭────────────────────────────────────────────────────────────────────────────────────────╮
-│   VGT AUTO-PUNISHER V5.0.0 - DIAMANT SUPREME (L7 SNI GHOST-SENSOR)                     │
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   VGT AUTO-PUNISHER V5.0.0 - DIAMANT SUPREME (L7 SNI GHOST-SENSOR)                                          │
 ├────────┬─────────────────┬──────────────────┬───────────────┬───┬───┬───┬───┬──────────┤
 │ ZEIT   │ QUELL-IP        │ DOMAIN (SNI/L7)  │ ZIEL (PORT)   │ B │ H │ R │ S │ STATUS   │
 ├────────┼─────────────────┼──────────────────┼───────────────┼───┼───┼───┼───┼──────────┤
@@ -100,9 +102,9 @@ Flash-burst → instant ban [⚡]
 │ 12:33  │ 94.102.61.8     │ DIRECT_IP        │ 443 [WEB]     │ 1 │ 1 │ 1 │ 1 │ DOM-KILL │
 │ 12:33  │ 185.220.101.47  │ N/A (L4 SYN)     │ 22  [SSH]     │ 1 │ 1 │ 1 │ 1 │ SSH-KILL │
 ├────────┴─────────────────┴──────────────────┴───────────────┴───┴───┴───┴───┴──────────┤
-│ [🎯] SNI/HOST VIOLATION: IP 94.102.61.8 terminiert (Zugriff auf: DIRECT_IP).           │
-│ [🔐] ZERO-TOLERANCE: IP 185.220.101.47 terminiert (Illegaler L4 SSH-Zugriff).          │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+│ [🎯] SNI/HOST VIOLATION: IP 94.102.61.8 terminiert (Zugriff auf: DIRECT_IP).            │
+│ [🔐] ZERO-TOLERANCE: IP 185.220.101.47 terminiert (Illegaler L4 SSH-Zugriff).           │
+╰──────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ---
@@ -448,8 +450,10 @@ BAN_DURATION      24 hours (configurable via BAN_TIME)
 STRIKE_MODES      6: DOM + SSH + Velocity + Surgical + Infrastructure + Macro
 STRIKE_ICONS      [🎯] DOM · [🔐] SSH · [⚡] Velocity · [✖] Rate · [☢] Infra · [☠] Macro
 DOMAIN_WHITELIST  Configurable — all non-whitelisted domains → instant ban
-DIRECT_IP_KILL    Any server IP access without valid domain → instant ban
+DIRECT_IP_KILL    Foreign/unknown domain → instant ban (SNI Spoofing)
+MOBILE_TOLERANCE  DIRECT_IP_OR_MALFORMED → 3 strikes via L7_STRIKE_THRESHOLD (mobile noise)
 SSH_TOLERANCE     Zero — first contact from unknown IP = instant ban
+L7_STRIKE_THRESHOLD 3 hits for MALFORMED/empty SNI before ban
 VELOCITY_LIMIT    5 hits/second (Flash-Burst detection)
 WIDE_RANGE        /16 sector kill at 150 hits (Roaming-Scanner)
 PORT_SPLIT        L7: 80/443/8443 | L4: all other ports
