@@ -10,6 +10,7 @@ set -Eeuo pipefail
 
 # --- VGT PARAMETER ---
 readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
+readonly L7_STRIKE_THRESHOLD=3     # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
 readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
 readonly WIDE_RANGE_THRESHOLD=150  # Globales Sektor-Limit (/16)
 readonly VELOCITY_LIMIT=5          # Max Hits pro Sekunde
@@ -19,13 +20,16 @@ readonly L7_PREFIX="[VGT_L7]"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
 
+
+
 # --- VGT MASTER WHITELISTS (GEHÄRTET) ---
 
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
 
 # HIER DEINE ERLAUBTEN DOMAINS EINTRAGEN (Leerzeichen getrennt)
 
-readonly WHITELIST_DOMAINS="example.de  www.example.de"
+readonly WHITELIST_DOMAINS="example.de www.example.de" 
+
 
 # --- VGT HIGH-END UI DESIGN (ANSI) ---
 readonly C_RED='\033[38;2;255;51;102m'
@@ -225,7 +229,7 @@ function start_hunt() {
     HEARTBEAT_PID=$!
 
     # Verknüpfung beider Sensoren: Iptables (L4 Kernel) & Python-Ghost (L7 User-Space)
-    journalctl -f --grep="($LOG_PREFIX|$L7_PREFIX)" | awk -v ip_limit="$IP_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" '
+    journalctl -f --grep="($LOG_PREFIX|$L7_PREFIX)" | awk -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" '
         BEGIN {
             c_res = "\033[0m"; c_gry = "\033[38;2;128;128;128m"; c_cyn = "\033[38;2;0;204;255m"; 
             c_ylw = "\033[38;2;255;204;0m"; c_red = "\033[38;2;255;51;102m"; c_pur = "\033[38;2;153;51;255m";
@@ -319,7 +323,10 @@ function start_hunt() {
                 } else {
                     domain_label = substr(domain_val, 1, 18);
                     domain_col = c_red;
-                    is_l7_strike = 1; # Illegitime Domain oder Direct IP
+                    l7_viol[ip]++;
+                    if (l7_viol[ip] >= l7_limit) {
+                        is_l7_strike = 1; # Illegitime Domain Limit erreicht
+                    }
                 }
             }
 
@@ -340,6 +347,7 @@ function start_hunt() {
             if (is_l7_strike) { status_msg = "DOM-KILL"; status_col = c_red; }
             else if (svc == "[SSH]") { status_msg = "SSH-KILL"; status_col = c_pur; }
             else if (ip_burst >= v_limit) { status_msg = "FLASH"; status_col = c_red; }
+            else if (l7_viol[ip] > 0 && l7_viol[ip] < l7_limit) { status_msg = "L7-WARN"; status_col = c_ylw; }
             else if (ip_count[ip] >= ip_limit) { status_msg = "IP-KILL"; status_col = c_red; }
             else if (!is_v6 && range_count[range] >= r_limit) { status_msg = "RNG-KILL"; status_col = c_red; }
             else if (!is_v6 && wide_range_count[wide_range] >= wr_limit) { status_msg = "MAC-KILL"; status_col = c_pur; }
@@ -374,7 +382,7 @@ function start_hunt() {
             # 0. L7 DOMAIN STRIKE (Instant Kill bei direkt IP / Falscher Domain)
             if (is_l7_strike && !killed[ip]) {
                 killed[ip] = 1;
-                msg = "SNI/HOST VIOLATION: IP " ip " terminiert (Zugriff auf: " domain_val ").";
+                msg = "SNI/HOST VIOLATION: IP " ip " terminiert (" l7_viol[ip] "x illegaler L7 Zugriff).";
                 print_kill("[🎯]", msg, c_red);
                 system("ipset add " target_set " " ip " -exist");
                 system(save_cmd " 2>/dev/null || true");
