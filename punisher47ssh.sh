@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.7.1 - ZERO-TOLERANCE EDITION)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V4.7.3 - SUPREME AUTO-PILOT EDITION)
 # STATUS: DIAMANT VGT SUPREME (ANTI-FLASH-BURST + MACRO STRIKE + SSH INSTANT-KILL)
 # ARCHITECTURE: Passive Log-Sensing + DPI + Velocity, Sektor Tracking & Port Mapping
-# UPDATE: Zero-Tolerance SSH-Drop (1 Hit = 24h Ban).
+# UPDATE: Auto-Pilot (No-Prompt) Port Detection + Zero-Tolerance SSH-Drop.
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -46,21 +46,18 @@ function init_defense() {
 
     clear
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
-    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.7.1)         ${C_RESET}"
+    echo -e "${C_CYAN}   VGT APEX HYBRID ELITE INITIALISIERUNG (V4.7.3)         ${C_RESET}"
     echo -e "${C_PURPLE}==========================================================${C_RESET}"
 
-    # --- PORT DISCOVERY ---
+    # --- PORT DISCOVERY (AUTO-PILOT) ---
     echo -e "${C_GRAY}[VGT] Scanne aktive System-Ports...${C_RESET}"
     local open_ports
     open_ports=$(ss -tlnp | grep LISTEN | awk '{print $4}' | awk -F: '{print $NF}' | sort -un | tr '\n' ',' | sed 's/,$//' || echo "22,80,443")
     
     echo -e "${C_GREEN}[INFO] Offene Ports erkannt: $open_ports${C_RESET}"
-    echo ""
-    echo -e "${C_CYAN}[?] Welche Ports soll der Punisher AKTIV ÜBERWACHEN?${C_RESET}"
-    echo -e "${C_GRAY}(Enter drücken, um ALLE erkannten Ports [$open_ports] zu schützen)${C_RESET}"
-    read -p "Monitor-Ports: " USER_INPUT
+    echo -e "${C_YELLOW}[VGT] AUTO-PILOT ENGAGED: Alle aktiven Ports werden automatisch überwacht.${C_RESET}"
     
-    USER_PORTS=${USER_INPUT:-"$open_ports"}
+    USER_PORTS="$open_ports"
 
     # --- KERNEL HARDENING ---
     echo -e "${C_GRAY}[VGT] Optimiere TCP-Stack (BBR/FQ/Syncookies)...${C_RESET}"
@@ -115,7 +112,7 @@ EOF
 }
 
 # ==============================================================================
-# 2. DIE JAGD-LOGIK (V4.7.1 ZERO-TOLERANCE)
+# 2. DIE JAGD-LOGIK (V4.7.3 AUTO-PILOT)
 # ==============================================================================
 function cleanup_ui() {
     echo -ne "${TUI_RMCUP}"
@@ -148,7 +145,7 @@ function start_hunt() {
 
             # High-End Header Rendering
             print c_cyn "╭" top_line "╮" c_res;
-            printf "%s│%s%s%-102s%s%s│%s\n", c_cyn, c_pur, c_bld, "   VGT AUTO-PUNISHER V4.7.1 - ZERO-TOLERANCE EDITION (SSH INSTANT-KILL)   ", c_res, c_cyn, c_res;
+            printf "%s│%s%s%-102s%s%s│%s\n", c_cyn, c_pur, c_bld, "   VGT AUTO-PUNISHER V4.7.3 - SUPREME AUTO-PILOT (SSH ZERO-TOLERANCE)     ", c_res, c_cyn, c_res;
             print c_cyn "├" head_line "┤" c_res;
             print c_cyn "│" c_gry " ZEITSTEMPEL       " c_cyn "│" c_gry " QUELL-IP               " c_cyn "│" c_gry " ZIEL (PORT) " c_cyn "│" c_gry " BURST " c_cyn "│" c_gry " HITS " c_cyn "│" c_gry " R-HITS " c_cyn "│" c_gry " S-HITS " c_cyn "│" c_gry " STATUS   " c_cyn "│" c_res;
             print c_cyn "├" mid_line "┤" c_res;
