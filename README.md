@@ -31,6 +31,9 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 
 ---
 
+<img width="1920" height="1080" alt="Blue and Purple Modern Gaming Twitch Overlay" src="https://github.com/user-attachments/assets/6f6f8488-f04b-4732-93ba-6ee69ad1ad2e" />
+
+
 ## 🚀 V5.0.0 — DIAMANT SUPREME L7 GHOST EDITION
 
 **V5.0.0 is the current release.** This is the biggest architectural leap since V1 — Auto-Punisher is now a full L4 + L7 Hybrid IDS.
