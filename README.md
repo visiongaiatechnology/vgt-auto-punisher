@@ -216,15 +216,29 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Wir setzen die Pfade explizit für Linux Umgebungen
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONUNBUFFERED=1
+# Wir zwingen das Skript, Terminal-Codes zu ignorieren, falls nötig
+Environment=TERM=xterm-256color
+ExecStartPre=/usr/bin/chmod +x /root/vgt_punisher.sh
 ExecStart=/bin/bash /root/vgt_punisher.sh
 Restart=always
 RestartSec=10
-Environment=PYTHONUNBUFFERED=1
 SyslogIdentifier=vgt-punisher
+StandardOutput=null
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
+
 ```
+In your Bash script (/root/vgt_punisher.sh), you should make sure that the critical commands are found. Add this line immediately after `set -Eeuo pipefail`:
+
+# VGT Path Alignment
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
 
 ### Installation
 
