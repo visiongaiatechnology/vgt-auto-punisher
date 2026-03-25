@@ -210,28 +210,36 @@ Create `/etc/systemd/system/vgt-punisher.service`:
 
 ```ini
 [Unit]
-Description=VGT Auto-Punisher Autonomous Defense
-After=network-online.target netfilter-persistent.service
+Description=VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (DIAMANT CORE)
+After=network-online.target iptables.service netfilter-persistent.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-# Wir setzen die Pfade explizit für Linux Umgebungen
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PYTHONUNBUFFERED=1
-# Wir zwingen das Skript, Terminal-Codes zu ignorieren, falls nötig
-Environment=TERM=xterm-256color
-ExecStartPre=/usr/bin/chmod +x /root/vgt_punisher.sh
+# Explizite Root-Deklaration für direkten Kernel-Netfilter-Zugriff
+User=root
+WorkingDirectory=/root
+
+# Kinetische Umgebungs-Parameter
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="TERM=xterm-256color"
+
+# Pre-Flight Check & Execution
+ExecStartPre=/bin/chmod +x /root/vgt_punisher.sh
 ExecStart=/bin/bash /root/vgt_punisher.sh
+
+# Hochverfügbarkeits-Schleife (Zero-Downtime Toleranz)
 Restart=always
-RestartSec=10
+RestartSec=5s
+
+# Telemetrie-Routing
 SyslogIdentifier=vgt-punisher
-StandardOutput=null
+StandardOutput=journal
 StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-
 ```
 In your Bash script (/root/vgt_punisher.sh), you should make sure that the critical commands are found. Add this line immediately after `set -Eeuo pipefail`:
 
