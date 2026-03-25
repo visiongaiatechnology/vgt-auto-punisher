@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.1 - OPEN SOURCE DIAMANT HYBRID)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.2 - OPEN SOURCE DIAMANT HYBRID)
 # STATUS: DUAL-MODE ACTIVE (FULL DASHBOARD TUI + BULLETPROOF SERVICE TIER)
-# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + Global Port Trap
+# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + Global Port Trap + Watchdog
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -55,6 +55,11 @@ PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # 0. THE L7 GHOST SENSOR (PYTHON RAW SOCKET PAYLOAD)
 # ==============================================================================
 function deploy_l7_ghost() {
+    # Check ob Ghost bereits von einer ANDEREN Instanz läuft (Vermeidung von Race Conditions)
+    if pgrep -f vgt_l7_ghost.py > /dev/null && [[ "${VGT_RECOVERY:-0}" == "0" ]]; then
+        return
+    fi
+
     # CHIRURGISCHE INTERVENTION: Gnadenloses Töten des alten Daemons, damit Code-Updates zwingend greifen.
     pkill -f vgt_l7_ghost.py 2>/dev/null || true
     sleep 0.5
@@ -151,7 +156,7 @@ function init_defense() {
     
     if [[ "$VGT_DISPLAY_MODE" == "VISUAL" ]]; then
         clear
-        echo -e "${C_PURPLE}Injektiere VGT V6.3.1 (OS) APEX Schilde...${C_RESET}"
+        echo -e "${C_PURPLE}Injektiere VGT V6.3.2 (OS) APEX Schilde...${C_RESET}"
     fi
 
     ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
@@ -234,7 +239,7 @@ function render_frame() {
     printf "\033[H"; 
     
     print c_cyn "╭" top_line "╮" c_res;
-    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.1 (OPEN SOURCE)") c_res c_cyn "│" c_res;
+    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.2 (OPEN SOURCE)") c_res c_cyn "│" c_res;
     print c_cyn "│" c_pur "  ██║   ██║██╔════╝ ╚══██╔══╝  " c_wht sprintf("%-40s", "SYSTEM STATUS: [ DIAMANT SUPREME ]") c_cyn sprintf("%-61s", "UHRZEIT: " current_time) c_res c_cyn "│" c_res;
     print c_cyn "│" c_pur "  ╚██╗ ██╔╝██║  ███╗   ██║     " c_gry sprintf("%-101s", "-----------------------------------------------------------------------------------------------------") c_res c_cyn "│" c_res;
     
@@ -456,11 +461,21 @@ function start_hunt() {
             journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null &
             JPID=$!
             trap "kill $JPID 2>/dev/null" EXIT
-            while true; do echo "[VGT_TICK] $(date +'%H:%M:%S')"; sleep 1; done
+            while true; do 
+                echo "[VGT_TICK] $(date +'%H:%M:%S')"
+                # Watchdog: Falls Python Ghost tot, reanimieren
+                if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
+                sleep 1
+            done
         } | awk -v mode="VISUAL" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT"
     else
-        # Service Mode: DIREKTE PIPE ohne Subshells. Unzerstörbar durch Systemd.
-        journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null | awk -v mode="SILENT" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT"
+        # Service Mode: Endlosschleife mit Watchdog
+        while true; do
+            if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
+            # Starte den Stream-Prozessor. Falls dieser abstürzt (z.B. journalctl Reset), startet der Loop neu.
+            journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null | awk -v mode="SILENT" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT" || true
+            sleep 5
+        done
     fi
 }
 
