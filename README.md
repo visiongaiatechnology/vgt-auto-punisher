@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-5.0.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-5.0.1-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-L4_+_L7_Hybrid-red?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
 [![DPI](https://img.shields.io/badge/DPI-L4_+_L7-purple?style=for-the-badge)](#)
@@ -13,6 +13,29 @@
 
 > *"Don't rate-limit attackers. Terminate them."*
 > *AGPLv3 — For Humans, not for SaaS Corporations.*
+
+---
+
+> ## 🚨 CRITICAL SECURITY NOTICE — MANDATORY UPDATE REQUIRED
+>
+> **All users running V5.0.0 must update to V5.0.1 immediately.**
+>
+> Two security vulnerabilities have been identified and patched in V5.0.1:
+>
+> | CVE Class | Component | Description |
+> |---|---|---|
+> | **CWE-77** — Arbitrary Command Injection | L7 Ghost Sensor | Unsanitized SNI/Host header data could be passed into shell execution context |
+> | **CWE-117** — Log Forging | AWK Render Engine | Attacker-controlled input could inject forged log entries into the journal stream |
+>
+> **Attack surface:** A crafted TLS SNI handshake or HTTP Host header could exploit both vulnerabilities simultaneously — injecting shell commands and forging the log output to hide the activity.
+>
+> **Recommended action:**
+> ```bash
+> git pull origin main
+> systemctl restart vgt-punisher
+> ```
+>
+> Special thanks to **Will** for responsibly disclosing both vulnerabilities. 🙏
 
 ---
 
@@ -34,9 +57,9 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 <img width="1920" height="1080" alt="Blue and Purple Modern Gaming Twitch Overlay" src="https://github.com/user-attachments/assets/6f6f8488-f04b-4732-93ba-6ee69ad1ad2e" />
 
 
-## 🚀 V5.0.0 — DIAMANT SUPREME L7 GHOST EDITION
+## 🚀 V5.0.1 — DIAMANT SUPREME L7 GHOST EDITION
 
-**V5.0.0 is the current release.** This is the biggest architectural leap since V1 — Auto-Punisher is now a full L4 + L7 Hybrid IDS.
+**V5.0.1 is the current release.** Security patch over V5.0.0 — mandatory update for all users.
 
 ### What V5 can do that nothing else can
 
@@ -57,7 +80,7 @@ Flash-burst → instant ban [⚡]
 /16 roaming scanner → sector ban [☠]
 ```
 
-### V5.0.0 Full Feature Set
+### V5.0.1 Full Feature Set
 
 | Feature | Description |
 |---|---|
@@ -80,6 +103,8 @@ Flash-burst → instant ban [⚡]
 | **BBR + Kernel Hardening** | TCP stack optimized for performance and resilience |
 | **IPv6 Dual-Stack** | Full IPv4 + IPv6 monitoring and termination |
 | **Anti-Log-Spam Cache** | Legitimate users never flood the journal — 1s cache per IP/domain pair |
+| **CWE-77 Fix** | SNI/Host header data fully sanitized before any shell execution context |
+| **CWE-117 Fix** | AWK Render Engine output sanitized — log forging via crafted headers patched |
 
 ### Strike Priority Order
 
@@ -97,7 +122,7 @@ Flash-burst → instant ban [⚡]
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│   VGT AUTO-PUNISHER V5.0.0 - DIAMANT SUPREME (L7 SNI GHOST-SENSOR)                                          │
+│   VGT AUTO-PUNISHER V5.0.1 - DIAMANT SUPREME (L7 SNI GHOST-SENSOR)                                          │
 ├────────┬─────────────────┬──────────────────┬───────────────┬───┬───┬───┬───┬──────────┤
 │ ZEIT   │ QUELL-IP        │ DOMAIN (SNI/L7)  │ ZIEL (PORT)   │ B │ H │ R │ S │ STATUS   │
 ├────────┼─────────────────┼──────────────────┼───────────────┼───┼───┼───┼───┼──────────┤
@@ -202,7 +227,7 @@ ip6tables -F INPUT
 
 ## ⚙️ Run as systemd Service
 
-V5.0.0 is designed to run as a persistent background service — no terminal required, auto-starts after every reboot.
+V5.0.1 is designed to run as a persistent background service — no terminal required, auto-starts after every reboot.
 
 ### Service Unit
 
@@ -241,12 +266,13 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 ```
-In your Bash script (/root/vgt_punisher.sh), you should make sure that the critical commands are found. Add this line immediately after `set -Eeuo pipefail`:
 
+In your Bash script (/root/vgt_punisher.sh), add this line immediately after `set -Eeuo pipefail`:
+
+```bash
 # VGT Path Alignment
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-
+```
 
 ### Installation
 
@@ -334,6 +360,8 @@ sudo ./punisher5.sh
 
 All previous versions remain available in the repository.
 
+> ⚠️ **V5.0.0 is vulnerable.** Do not use. Update to V5.0.1.
+
 ### V4.7.3 — Supreme Auto-Pilot + SSH Zero-Tolerance
 `punisher47ssh.sh`
 
@@ -408,12 +436,14 @@ iptables INPUT Position 2-5
     (Python Raw Socket)       (iptables LOG)
     → Read TLS SNI                → SYN tracking
     → Read HTTP Host              → SSH Zero-Tolerance
-    → Domain whitelist check      → Velocity detection
-    → Direct IP → DOM-KILL [🎯]   → Rate limiting
+    → Sanitize input [CWE-77]     → Velocity detection
+    → Domain whitelist check      → Rate limiting
+    → Direct IP → DOM-KILL [🎯]
            │                        │
            └──────────┬─────────────┘
                       ▼
               journalctl stream
+              → Sanitized output [CWE-117]
               → AWK Hybrid Analyzer
               → Whitelist bypass
               → Strike execution
@@ -466,7 +496,7 @@ ip6tables-restore < /etc/iptables/rules.v6
 ## 📦 System Specs
 
 ```
-VERSION           5.0.0 (DIAMANT SUPREME L7 GHOST EDITION)
+VERSION           5.0.1 (DIAMANT SUPREME L7 GHOST EDITION)
 ARCHITECTURE      Hybrid L4 + L7 (iptables + ipset + Python Raw Socket + AWK)
 L4_SENSOR         Passive SYN LOG on non-web ports (rate-limited 50/s)
 L7_SENSOR         Python AF_PACKET Raw Socket — TLS SNI + HTTP Host extraction
@@ -491,6 +521,7 @@ AUTO_PILOT        All ports auto-detected — no startup prompt
 SERVICE_MODE      systemd compatible
 OVERHEAD          ~0% CPU idle (event-driven) + minimal Python Ghost process
 REQUIREMENTS      python3 + AF_PACKET Raw Socket support
+SECURITY_FIXES    CWE-77 (Command Injection) + CWE-117 (Log Forging) — patched in V5.0.1
 ```
 
 ---
@@ -522,8 +553,8 @@ Licensed under **AGPLv3** — *"For Humans, not for SaaS Corporations."*
 
 VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
 
-> *"Tino wanted to throw the script away. V5.0.0 reads TLS handshakes off the wire, terminates direct IP access instantly, and looks damn good doing it."* 😄
+> *"Tino wanted to throw the script away. V5.0.1 reads TLS handshakes off the wire, terminates direct IP access instantly, patches command injection — and looks damn good doing it."* 😄
 
 ---
 
-*Version 5.0.0 (DIAMANT SUPREME L7 GHOST EDITION) — VGT Auto-Punisher // L4 Passive Radar + L7 SNI Ghost + DPI + Kernel Hardening*
+*Version 5.0.1 (DIAMANT SUPREME L7 GHOST EDITION) — VGT Auto-Punisher // L4 Passive Radar + L7 SNI Ghost + DPI + Kernel Hardening // CWE-77 + CWE-117 patched*
