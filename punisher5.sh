@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.3 - OPEN SOURCE DIAMANT HYBRID)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.4 - OPEN SOURCE DIAMANT HYBRID)
 # STATUS: DUAL-MODE ACTIVE (FULL DASHBOARD TUI + BULLETPROOF SERVICE TIER)
-# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + Global Port Trap
-# SECURITY: DIAMANT VGT SUPREME - RCE/Command Injection & Log Forging Hardened
+# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + IPC Strike Executor
+# SECURITY: DIAMANT VGT SUPREME - Zero-Shell Injection (IPC) & Anti-Fork-Bomb
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -15,12 +15,14 @@ readonly RANGE_THRESHOLD=45        # Hits bis zum /24 Subnetz Ban (v4)
 readonly WIDE_RANGE_THRESHOLD=77   # Globales Sektor-Limit (/16)
 readonly VELOCITY_LIMIT=10         # Max Hits pro Sekunde
 readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer
+readonly MAX_STRIKES_PER_SEC=50    # Executor Rate-Limit gegen Fork-Bomben
 
 # HÄRTUNG: Keine eckigen Klammern, um Regex-Kollisionen im journalctl zu verhindern.
 readonly LOG_PREFIX="VGT_STRIKE_EVENT"
 readonly L7_PREFIX="VGT_L7_EVENT"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
+readonly VGT_QUEUE="/tmp/vgt_action_queue"
 
 # --- VGT MASTER WHITELISTS (GEHÄRTET) ---
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
@@ -56,12 +58,10 @@ PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # 0. THE L7 GHOST SENSOR (PYTHON RAW SOCKET PAYLOAD)
 # ==============================================================================
 function deploy_l7_ghost() {
-    # Check ob Ghost bereits von einer ANDEREN Instanz läuft
     if pgrep -f vgt_l7_ghost.py > /dev/null && [[ "${VGT_RECOVERY:-0}" == "0" ]]; then
         return
     fi
 
-    # CHIRURGISCHE INTERVENTION: Gnadenloses Töten des alten Daemons
     pkill -f vgt_l7_ghost.py 2>/dev/null || true
     sleep 0.5
 
@@ -133,9 +133,6 @@ try:
         raw_domain = parse_sni(payload) if dst_port in (443, 8443) else parse_http(payload)
         if not raw_domain: continue
         
-        # [ DIAMANT VGT SUPREME SECURITY FIX ]
-        # Strict Whitelist Sanitization. Verhindert Command Injection und Log Forging
-        # bevor der Payload ins Syslog geschrieben wird.
         domain = "".join([c for c in raw_domain if c.isalnum() or c in ".-_"])
         if not domain or len(domain) > 255: continue
 
@@ -152,8 +149,47 @@ EOF
 }
 
 # ==============================================================================
-# 1. INITIALISIERUNG
+# 1. INITIALISIERUNG & ASYNC IPC EXECUTOR (DIAMANT SUPREME CORE)
 # ==============================================================================
+function start_executor() {
+    rm -f "$VGT_QUEUE"
+    mkfifo "$VGT_QUEUE"
+    
+    # Asynchroner Background-Daemon. Beseitigt AWK system() Limits und Fork-Bomben.
+    (
+        exec 3<> "$VGT_QUEUE" # Pipe offen halten
+        
+        local count=0
+        local current_sec=$(date +%s)
+        
+        while IFS='|' read -r action target msg <&3; do
+            [[ -z "$action" ]] && continue
+            
+            # Rate-Limiting / Anti-Fork-Bomb Token Bucket
+            local now=$(date +%s)
+            if (( now != current_sec )); then
+                current_sec=$now
+                count=0
+            fi
+            if (( count >= MAX_STRIKES_PER_SEC )); then
+                sleep 0.05
+            fi
+            ((count++))
+
+            # Direkte Exec-Aufrufe ohne Shell-Evaluierung. Variables in Quotes 
+            # werden nativ an das Binary übergeben. RCE/Injection ist physikalisch unmöglich.
+            if [[ "$action" == "BAN_V4" ]]; then
+                ipset add "$IPSET_V4" "$target" -exist 2>/dev/null || true
+                logger "[VGT_KILL_LOG] $msg"
+            elif [[ "$action" == "BAN_V6" ]]; then
+                ipset add "$IPSET_V6" "$target" -exist 2>/dev/null || true
+                logger "[VGT_KILL_LOG] $msg"
+            fi
+        done
+    ) &
+    export VGT_EXEC_PID=$!
+}
+
 function init_defense() {
     if [[ $EUID -ne 0 ]]; then 
         echo -e "${C_RED}[FATAL] Root erforderlich.${C_RESET}" >&2
@@ -162,7 +198,7 @@ function init_defense() {
     
     if [[ "$VGT_DISPLAY_MODE" == "VISUAL" ]]; then
         clear
-        echo -e "${C_PURPLE}Injektiere VGT V6.3.3 (OS) APEX Schilde...${C_RESET}"
+        echo -e "${C_PURPLE}Injektiere VGT V6.3.4 (OS) IPC Schilde...${C_RESET}"
     fi
 
     ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
@@ -175,7 +211,6 @@ function init_defense() {
         fi
     done
 
-    # DPI Sanitization
     for cmd in "iptables" "ip6tables"; do
         if ! $cmd -C INPUT -m state --state INVALID -j DROP >/dev/null 2>&1; then
             $cmd -I INPUT 2 -m state --state INVALID -j DROP
@@ -185,7 +220,6 @@ function init_defense() {
         fi
     done
 
-    # VGT OMEGA: GLOBAL PORT TRAP
     for cmd in "iptables" "ip6tables"; do
         while $cmd -D INPUT -p tcp -m state --state NEW -m multiport ! --dports 80,443,8443 ! -i lo -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
         while $cmd -D INPUT -p tcp -m state --state NEW -m multiport ! --dports 80,443,8443 ! -i lo -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
@@ -194,6 +228,7 @@ function init_defense() {
     done
 
     deploy_l7_ghost
+    start_executor
 }
 
 function cleanup_ui() {
@@ -203,6 +238,8 @@ function cleanup_ui() {
         dmesg -E 2>/dev/null || true
     fi
     pkill -f "journalctl -n 0 -f --grep" 2>/dev/null || true
+    kill -9 $VGT_EXEC_PID 2>/dev/null || true
+    rm -f "$VGT_QUEUE"
     pkill -P $$ 2>/dev/null || true
     exit 0
 }
@@ -238,21 +275,14 @@ BEGIN {
     if (mode == "VISUAL") { printf "\033[2J"; }
 }
 
-# [ DIAMANT VGT SUPREME SECURITY FIX ]
-# Absolute Defense-in-Depth. Verhindert Command Injection in system() Calls.
-function sh_esc(s) {
-    gsub(/'\''/, "'\''\\'\'''\''", s);
-    return "'\''" s "'\''";
-}
-
 function render_frame() {
     if (mode != "VISUAL") return;
     
     printf "\033[H"; 
     
     print c_cyn "╭" top_line "╮" c_res;
-    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.3 (OPEN SOURCE)") c_res c_cyn "│" c_res;
-    print c_cyn "│" c_pur "  ██║   ██║██╔════╝ ╚══██╔══╝  " c_wht sprintf("%-40s", "SYSTEM STATUS: [ DIAMANT SUPREME SECURED ]") c_cyn sprintf("%-61s", "UHRZEIT: " current_time) c_res c_cyn "│" c_res;
+    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.4 (OPEN SOURCE)") c_res c_cyn "│" c_res;
+    print c_cyn "│" c_pur "  ██║   ██║██╔════╝ ╚══██╔══╝  " c_wht sprintf("%-40s", "SYSTEM STATUS: [ DIAMANT IPC SECURED ]") c_cyn sprintf("%-61s", "UHRZEIT: " current_time) c_res c_cyn "│" c_res;
     print c_cyn "│" c_pur "  ╚██╗ ██╔╝██║  ███╗   ██║     " c_gry sprintf("%-101s", "-----------------------------------------------------------------------------------------------------") c_res c_cyn "│" c_res;
     
     stats_a = sprintf("[X] IP-KILLS: %-5d |  [🎯] DOM-KILLS: %-5d", stat_ip, stat_dom);
@@ -298,6 +328,18 @@ function push_kill(icon, text, color) {
     kill_buffer[(kill_idx - 1) % KILL_MAX + 1] = formatted;
 }
 
+# IPC Queue Dispatcher - Zero Shell Evaluation
+function execute_strike(ip, is_v6, log_msg) {
+    q_act = is_v6 ? "BAN_V6" : "BAN_V4"
+    print q_act "|" ip "|" log_msg > q_pipe
+    fflush(q_pipe)
+}
+
+function execute_range_strike(range, log_msg) {
+    print "BAN_V4|" range "|" log_msg > q_pipe
+    fflush(q_pipe)
+}
+
 $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next; }
 
 /\[VGT_TICK\]/ {
@@ -321,9 +363,9 @@ $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next;
     if (is_wl || ip == "" || tolower(ip) ~ /^fe80:/) next;
 
     if (ip ~ /:/) {
-        is_v6 = 1; target_set = set_v6; range = "IPv6_STRIKE"; wide_range = "IPv6_WIDE";
+        is_v6 = 1; range = "IPv6_STRIKE"; wide_range = "IPv6_WIDE";
     } else {
-        is_v6 = 0; target_set = set_v4;
+        is_v6 = 0;
         split(ip, octets, "."); 
         range = octets[1] "." octets[2] "." octets[3] ".0/24";
         wide_range = octets[1] "." octets[2] ".0.0/16";
@@ -416,46 +458,45 @@ $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next;
     
     push_log(row);
 
-    # --- KINETIC STRIKES (EXECUTION - DIAMANT SECURED) ---
+    # --- KINETIC STRIKES (DIAMANT IPC EXECUTION) ---
     if (is_l7_strike > 0 && !killed[ip]) {
         killed[ip] = 1; stat_dom++;
         msg = (is_l7_strike == 2) ? "SNI SPOOFING: IP " ip " eliminiert (Fremde Domain: " foreign_domain ")." : "SNI VIOLATION: IP " ip " eliminiert (" l7_viol[ip] "x fehlerhaft).";
         push_kill("[🎯]", msg, c_red);
-        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] " msg));
+        execute_strike(ip, is_v6, msg);
         ip_count[ip] = -999; burst_count[sec_key] = -999;
     }
     else if (svc != "[WEB]" && svc != "[SMTP]" && !killed[ip]) {
         killed[ip] = 1; stat_sys++;
+        msg = "SYS-KILL " ip
         push_kill("[🔐]", "ZERO-TOLERANCE: IP " ip " eliminiert (Illegaler " svc "-Scan auf Port " dpt ").", c_pur);
-        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] SYS-KILL " ip));
+        execute_strike(ip, is_v6, msg);
         ip_count[ip] = -999; burst_count[sec_key] = -999;
     }
     else if (ip_burst >= v_limit && !killed[ip]) {
         killed[ip] = 1; stat_flash++;
+        msg = "FLASH-KILL " ip
         push_kill("[⚡]", "VELOCITY STRIKE: IP " ip " eliminiert (" ip_burst " Hits/sek).", c_red);
-        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] FLASH-KILL " ip));
+        execute_strike(ip, is_v6, msg);
         burst_count[sec_key] = -999; 
     } 
     else if (ip_count[ip] == ip_limit && !killed[ip]) {
         killed[ip] = 1; stat_ip++;
+        msg = "IP-KILL " ip
         push_kill("[✖]", "RATE-LIMIT: IP " ip " für 24h hingerichtet.", c_red);
-        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] IP-KILL " ip));
+        execute_strike(ip, is_v6, msg);
     }
     if (!is_v6 && range_count[range] == r_limit && !killed[range]) {
         killed[range] = 1; stat_infra++;
+        msg = "RNG-KILL " range
         push_kill("[☢]", "INFRA-SCHLAG: Range " range " für 24h terminiert.", c_red);
-        system("ipset add " sh_esc(target_set) " " sh_esc(range) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] RNG-KILL " range));
+        execute_range_strike(range, msg);
     }
     if (!is_v6 && wide_range_count[wide_range] == wr_limit && !killed[wide_range]) {
         killed[wide_range] = 1; stat_macro++;
+        msg = "MAC-KILL " wide_range
         push_kill("[☠]", "MACRO-SCHLAG: Sektor " wide_range " terminiert (Scanner).", c_pur);
-        system("ipset add " sh_esc(target_set) " " sh_esc(wide_range) " -exist 2>/dev/null"); 
-        system("logger " sh_esc("[VGT_KILL_LOG] MAC-KILL " wide_range));
+        execute_range_strike(wide_range, msg);
     }
 
     render_frame();
@@ -481,11 +522,11 @@ function start_hunt() {
                 if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
                 sleep 1
             done
-        } | awk -v mode="VISUAL" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT"
+        } | awk -v mode="VISUAL" -v q_pipe="$VGT_QUEUE" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT"
     else
         while true; do
             if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
-            journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null | awk -v mode="SILENT" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT" || true
+            journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null | awk -v mode="SILENT" -v q_pipe="$VGT_QUEUE" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT" || true
             sleep 5
         done
     fi
