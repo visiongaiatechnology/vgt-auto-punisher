@@ -1,8 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.2 - OPEN SOURCE DIAMANT HYBRID)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.3 - OPEN SOURCE DIAMANT HYBRID)
 # STATUS: DUAL-MODE ACTIVE (FULL DASHBOARD TUI + BULLETPROOF SERVICE TIER)
-# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + Global Port Trap + Watchdog
+# ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + Global Port Trap
+# SECURITY: DIAMANT VGT SUPREME - RCE/Command Injection & Log Forging Hardened
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -55,12 +56,12 @@ PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # 0. THE L7 GHOST SENSOR (PYTHON RAW SOCKET PAYLOAD)
 # ==============================================================================
 function deploy_l7_ghost() {
-    # Check ob Ghost bereits von einer ANDEREN Instanz läuft (Vermeidung von Race Conditions)
+    # Check ob Ghost bereits von einer ANDEREN Instanz läuft
     if pgrep -f vgt_l7_ghost.py > /dev/null && [[ "${VGT_RECOVERY:-0}" == "0" ]]; then
         return
     fi
 
-    # CHIRURGISCHE INTERVENTION: Gnadenloses Töten des alten Daemons, damit Code-Updates zwingend greifen.
+    # CHIRURGISCHE INTERVENTION: Gnadenloses Töten des alten Daemons
     pkill -f vgt_l7_ghost.py 2>/dev/null || true
     sleep 0.5
 
@@ -129,15 +130,20 @@ try:
         payload = packet[h_size:]
         if len(payload) == 0: continue
 
-        domain = parse_sni(payload) if dst_port in (443, 8443) else parse_http(payload)
-        if not domain: continue
+        raw_domain = parse_sni(payload) if dst_port in (443, 8443) else parse_http(payload)
+        if not raw_domain: continue
+        
+        # [ DIAMANT VGT SUPREME SECURITY FIX ]
+        # Strict Whitelist Sanitization. Verhindert Command Injection und Log Forging
+        # bevor der Payload ins Syslog geschrieben wird.
+        domain = "".join([c for c in raw_domain if c.isalnum() or c in ".-_"])
+        if not domain or len(domain) > 255: continue
 
         cache_key = f"{src_ip}_{domain}"
         now = time.time()
         if cache_key in CACHE and (now - CACHE[cache_key]) < 1.0: continue
         CACHE[cache_key] = now
 
-        # Der String VGT_L7_EVENT triggert sicher die AWK Engine ohne Regex-Crashes.
         syslog.syslog(f"VGT_L7_EVENT SRC={src_ip} DPT={dst_port} DOMAIN={domain}")
 except Exception as e:
     syslog.syslog(f"CRITICAL ERROR: {e}")
@@ -156,7 +162,7 @@ function init_defense() {
     
     if [[ "$VGT_DISPLAY_MODE" == "VISUAL" ]]; then
         clear
-        echo -e "${C_PURPLE}Injektiere VGT V6.3.2 (OS) APEX Schilde...${C_RESET}"
+        echo -e "${C_PURPLE}Injektiere VGT V6.3.3 (OS) APEX Schilde...${C_RESET}"
     fi
 
     ipset create "$IPSET_V4" hash:net family inet maxelem 1000000 timeout $BAN_TIME -exist 2>/dev/null || true
@@ -179,8 +185,7 @@ function init_defense() {
         fi
     done
 
-    # VGT OMEGA: GLOBAL PORT TRAP (L4 SYN auf ALLES außer Web-Ports)
-    # Ersetzt die schwache 'ss -tlnp' Logik durch absolute Sichtbarkeit über alle 65.535 Ports
+    # VGT OMEGA: GLOBAL PORT TRAP
     for cmd in "iptables" "ip6tables"; do
         while $cmd -D INPUT -p tcp -m state --state NEW -m multiport ! --dports 80,443,8443 ! -i lo -m limit --limit 50/s --limit-burst 100 -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
         while $cmd -D INPUT -p tcp -m state --state NEW -m multiport ! --dports 80,443,8443 ! -i lo -j LOG --log-prefix "$LOG_PREFIX " 2>/dev/null; do :; done
@@ -233,14 +238,21 @@ BEGIN {
     if (mode == "VISUAL") { printf "\033[2J"; }
 }
 
+# [ DIAMANT VGT SUPREME SECURITY FIX ]
+# Absolute Defense-in-Depth. Verhindert Command Injection in system() Calls.
+function sh_esc(s) {
+    gsub(/'\''/, "'\''\\'\'''\''", s);
+    return "'\''" s "'\''";
+}
+
 function render_frame() {
     if (mode != "VISUAL") return;
     
     printf "\033[H"; 
     
     print c_cyn "╭" top_line "╮" c_res;
-    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.2 (OPEN SOURCE)") c_res c_cyn "│" c_res;
-    print c_cyn "│" c_pur "  ██║   ██║██╔════╝ ╚══██╔══╝  " c_wht sprintf("%-40s", "SYSTEM STATUS: [ DIAMANT SUPREME ]") c_cyn sprintf("%-61s", "UHRZEIT: " current_time) c_res c_cyn "│" c_res;
+    print c_cyn "│" c_pur "  ██╗   ██╗ ██████╗ ████████╗  " c_bld sprintf("%-101s", "VISIONGAIA TECHNOLOGY: SUPREME DASHBOARD V6.3.3 (OPEN SOURCE)") c_res c_cyn "│" c_res;
+    print c_cyn "│" c_pur "  ██║   ██║██╔════╝ ╚══██╔══╝  " c_wht sprintf("%-40s", "SYSTEM STATUS: [ DIAMANT SUPREME SECURED ]") c_cyn sprintf("%-61s", "UHRZEIT: " current_time) c_res c_cyn "│" c_res;
     print c_cyn "│" c_pur "  ╚██╗ ██╔╝██║  ███╗   ██║     " c_gry sprintf("%-101s", "-----------------------------------------------------------------------------------------------------") c_res c_cyn "│" c_res;
     
     stats_a = sprintf("[X] IP-KILLS: %-5d |  [🎯] DOM-KILLS: %-5d", stat_ip, stat_dom);
@@ -286,7 +298,6 @@ function push_kill(icon, text, color) {
     kill_buffer[(kill_idx - 1) % KILL_MAX + 1] = formatted;
 }
 
-# Regex-Bug gefixt: Direkte String-Matches ohne Sonderzeichen verhindern Parsing-Fehler.
 $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next; }
 
 /\[VGT_TICK\]/ {
@@ -310,9 +321,9 @@ $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next;
     if (is_wl || ip == "" || tolower(ip) ~ /^fe80:/) next;
 
     if (ip ~ /:/) {
-        is_v6 = 1; target_set = set_v6; range = "IPv6_STRIKE"; wide_range = "IPv6_WIDE"; save_cmd = "ip6tables-save > /etc/iptables/rules.v6";
+        is_v6 = 1; target_set = set_v6; range = "IPv6_STRIKE"; wide_range = "IPv6_WIDE";
     } else {
-        is_v6 = 0; target_set = set_v4; save_cmd = "iptables-save > /etc/iptables/rules.v4";
+        is_v6 = 0; target_set = set_v4;
         split(ip, octets, "."); 
         range = octets[1] "." octets[2] "." octets[3] ".0/24";
         wide_range = octets[1] "." octets[2] ".0.0/16";
@@ -405,41 +416,46 @@ $0 !~ /VGT_STRIKE_EVENT/ && $0 !~ /VGT_L7_EVENT/ && $0 !~ /\[VGT_TICK\]/ { next;
     
     push_log(row);
 
-    # --- KINETIC STRIKES (EXECUTION) ---
-    # Beachte: Logger nutzt VGT_KILL_LOG, damit grep den String nicht doppelt liest.
+    # --- KINETIC STRIKES (EXECUTION - DIAMANT SECURED) ---
     if (is_l7_strike > 0 && !killed[ip]) {
         killed[ip] = 1; stat_dom++;
         msg = (is_l7_strike == 2) ? "SNI SPOOFING: IP " ip " eliminiert (Fremde Domain: " foreign_domain ")." : "SNI VIOLATION: IP " ip " eliminiert (" l7_viol[ip] "x fehlerhaft).";
         push_kill("[🎯]", msg, c_red);
-        system("ipset add " target_set " " ip " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] " msg "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] " msg));
         ip_count[ip] = -999; burst_count[sec_key] = -999;
     }
     else if (svc != "[WEB]" && svc != "[SMTP]" && !killed[ip]) {
         killed[ip] = 1; stat_sys++;
         push_kill("[🔐]", "ZERO-TOLERANCE: IP " ip " eliminiert (Illegaler " svc "-Scan auf Port " dpt ").", c_pur);
-        system("ipset add " target_set " " ip " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] SYS-KILL " ip "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] SYS-KILL " ip));
         ip_count[ip] = -999; burst_count[sec_key] = -999;
     }
     else if (ip_burst >= v_limit && !killed[ip]) {
         killed[ip] = 1; stat_flash++;
         push_kill("[⚡]", "VELOCITY STRIKE: IP " ip " eliminiert (" ip_burst " Hits/sek).", c_red);
-        system("ipset add " target_set " " ip " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] FLASH-KILL " ip "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] FLASH-KILL " ip));
         burst_count[sec_key] = -999; 
     } 
     else if (ip_count[ip] == ip_limit && !killed[ip]) {
         killed[ip] = 1; stat_ip++;
         push_kill("[✖]", "RATE-LIMIT: IP " ip " für 24h hingerichtet.", c_red);
-        system("ipset add " target_set " " ip " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] IP-KILL " ip "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(ip) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] IP-KILL " ip));
     }
     if (!is_v6 && range_count[range] == r_limit && !killed[range]) {
         killed[range] = 1; stat_infra++;
         push_kill("[☢]", "INFRA-SCHLAG: Range " range " für 24h terminiert.", c_red);
-        system("ipset add " target_set " " range " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] RNG-KILL " range "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(range) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] RNG-KILL " range));
     }
     if (!is_v6 && wide_range_count[wide_range] == wr_limit && !killed[wide_range]) {
         killed[wide_range] = 1; stat_macro++;
         push_kill("[☠]", "MACRO-SCHLAG: Sektor " wide_range " terminiert (Scanner).", c_pur);
-        system("ipset add " target_set " " wide_range " -exist 2>/dev/null"); system("logger \"[VGT_KILL_LOG] MAC-KILL " wide_range "\"");
+        system("ipset add " sh_esc(target_set) " " sh_esc(wide_range) " -exist 2>/dev/null"); 
+        system("logger " sh_esc("[VGT_KILL_LOG] MAC-KILL " wide_range));
     }
 
     render_frame();
@@ -454,25 +470,21 @@ function start_hunt() {
     
     if [[ "$VGT_DISPLAY_MODE" == "VISUAL" ]]; then
         echo -ne "${TUI_SMCUP}${TUI_HIDE_CUR}"
-        dmesg -D 2>/dev/null || true # Unterdrücke direkte Kernel-TTY-Injektionen
+        dmesg -D 2>/dev/null || true 
         
-        # Visual Mode mit Ticks & Subshell
         {
             journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null &
             JPID=$!
             trap "kill $JPID 2>/dev/null" EXIT
             while true; do 
                 echo "[VGT_TICK] $(date +'%H:%M:%S')"
-                # Watchdog: Falls Python Ghost tot, reanimieren
                 if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
                 sleep 1
             done
         } | awk -v mode="VISUAL" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT"
     else
-        # Service Mode: Endlosschleife mit Watchdog
         while true; do
             if ! pgrep -f vgt_l7_ghost.py > /dev/null; then export VGT_RECOVERY=1; deploy_l7_ghost; fi
-            # Starte den Stream-Prozessor. Falls dieser abstürzt (z.B. journalctl Reset), startet der Loop neu.
             journalctl -n 0 -f --grep="($LOG_PREFIX|$L7_PREFIX)" 2>/dev/null | awk -v mode="SILENT" -v ip_limit="$IP_THRESHOLD" -v l7_limit="$L7_STRIKE_THRESHOLD" -v r_limit="$RANGE_THRESHOLD" -v wr_limit="$WIDE_RANGE_THRESHOLD" -v v_limit="$VELOCITY_LIMIT" -v set_v4="$IPSET_V4" -v set_v6="$IPSET_V6" -v wl="$WHITELIST_IPS" -v wl_dom="$WHITELIST_DOMAINS" "$AWK_SCRIPT" || true
             sleep 5
         done
