@@ -18,9 +18,9 @@
 
 > ## 🚨 CRITICAL SECURITY NOTICE — MANDATORY UPDATE REQUIRED
 >
-> **All users running V5.0.0 must update to V5.0.1 immediately.**
+> **All users running V5.0.0 must update to V6.3.4 immediately.**
 >
-> Two security vulnerabilities have been identified and patched in V5.0.1:
+> Two security vulnerabilities have been identified and patched in V6.3.4:
 >
 > | CVE Class | Component | Description |
 > |---|---|---|
