@@ -34,7 +34,7 @@ Two severe security vulnerabilities were identified in the legacy architecture b
 
 **Patch Status (V6.3.4):** The architecture has been overhauled. Shell evaluations have been completely replaced with a direct IPC (Inter-Process Communication) queue, eliminating the RCE vector. Inputs are now strictly sanitized before reaching the rendering engine.
 
-🙏 **Special Thanks:** Massive respect and gratitude to **Will** for responsibly disclosing these vulnerabilities, verifying the textbook command injection, and providing invaluable architectural feedback. His audit was the catalyst for reframing this project from a "commercial tool" into a transparent, educational R&D initiative.
+🙏 **Special Thanks:** Massive respect and gratitude to **Will** [Will's Github](https://github.com/gtech) for responsibly disclosing these vulnerabilities, verifying the textbook command injection, and providing invaluable architectural feedback. His audit was the catalyst for reframing this project from a "commercial tool" into a transparent, educational R&D initiative.
 
 ---
 
