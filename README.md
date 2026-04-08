@@ -1,47 +1,46 @@
-# ⚔️ VGT Auto-Punisher — Kernel-Level Behavioral IDS
+# ⚔️ VGT Auto-Punisher — Experimental Userspace IDS (R&D Project)
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-5.0.1-brightgreen?style=for-the-badge)](#)
-[![Architecture](https://img.shields.io/badge/Architecture-L4_+_L7_Hybrid-red?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-6.3.4-brightgreen?style=for-the-badge)](#)
+[![Architecture](https://img.shields.io/badge/Architecture-Userspace_Hybrid-orange?style=for-the-badge)](#)
+[![Status](https://img.shields.io/badge/Status-R%26D_/_Experimental-yellow?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
-[![DPI](https://img.shields.io/badge/DPI-L4_+_L7-purple?style=for-the-badge)](#)
-[![SSH](https://img.shields.io/badge/SSH-ZERO_TOLERANCE-red?style=for-the-badge)](#)
-[![SNI](https://img.shields.io/badge/SNI-GHOST_SENSOR-orange?style=for-the-badge)](#)
-[![Status](https://img.shields.io/badge/Status-STABLE-brightgreen?style=for-the-badge)](#)
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 
 > *"Don't rate-limit attackers. Terminate them."*
-> *AGPLv3 — For Humans, not for SaaS Corporations.*
+> *AGPLv3 — Open Source. Open Knowledge.*
 
 ---
 
-> ## 🚨 CRITICAL SECURITY NOTICE — MANDATORY UPDATE REQUIRED
->
-> **All users running V5.0.0 must update to V6.3.4 immediately.**
->
-> Two security vulnerabilities have been identified and patched in V6.3.4:
->
-> | CVE Class | Component | Description |
-> |---|---|---|
-> | **CWE-77** — Arbitrary Command Injection | L7 Ghost Sensor | Unsanitized SNI/Host header data could be passed into shell execution context |
-> | **CWE-117** — Log Forging | AWK Render Engine | Attacker-controlled input could inject forged log entries into the journal stream |
->
-> **Attack surface:** A crafted TLS SNI handshake or HTTP Host header could exploit both vulnerabilities simultaneously — injecting shell commands and forging the log output to hide the activity.
->
-> **Recommended action:**
-> ```bash
-> git pull origin main
-> systemctl restart vgt-punisher
-> ```
->
-> Special thanks to **Will** for responsibly disclosing both vulnerabilities. 🙏
+## ⚠️ DISCLAIMER: EXPERIMENTAL R&D PROJECT
+
+This project is a **Proof of Concept (PoC)** exploring asynchronous userspace packet inspection using Bash, AWK, and Python Raw Sockets. It is **not** a kernel-level module, and parsing adversarial network input via high-level scripting languages as root carries inherent architectural risks.
+
+**Do not use this in critical production environments.** For enterprise-grade kernel-level protection, we recommend established eBPF/Netfilter solutions like CrowdSec or nftables.
+
+---
+
+## 🚨 CRITICAL SECURITY NOTICE — VULNERABILITY DISCLOSURE
+
+**All users running legacy versions (<= V6.3.2) must update to V6.3.4 or sunset the service.**
+
+Two severe security vulnerabilities were identified in the legacy architecture by an independent security researcher:
+
+| CVE Class | Component | Description |
+|---|---|---|
+| **CWE-77** — Command Injection | L7 Ghost Sensor | Unsanitized SNI/Host header data could be passed into a shell execution context, allowing Remote Code Execution (RCE) |
+| **CWE-117** — Log Forging | AWK Engine | Attacker-controlled input could inject forged entries into the journal stream, bypassing detection logic |
+
+**Patch Status (V6.3.4):** The architecture has been overhauled. Shell evaluations have been completely replaced with a direct IPC (Inter-Process Communication) queue, eliminating the RCE vector. Inputs are now strictly sanitized before reaching the rendering engine.
+
+🙏 **Special Thanks:** Massive respect and gratitude to **Will** for responsibly disclosing these vulnerabilities, verifying the textbook command injection, and providing invaluable architectural feedback. His audit was the catalyst for reframing this project from a "commercial tool" into a transparent, educational R&D initiative.
 
 ---
 
 ## 💎 Support the Project
 
-VGT Auto-Punisher is free. If it keeps your server clean:
+VGT Auto-Punisher is free. If you find it useful for learning or experimentation:
 
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
 
@@ -54,120 +53,100 @@ VGT Auto-Punisher is free. If it keeps your server clean:
 
 ---
 
-<img width="1920" height="1080" alt="Blue and Purple Modern Gaming Twitch Overlay" src="https://github.com/user-attachments/assets/6f6f8488-f04b-4732-93ba-6ee69ad1ad2e" />
+<img width="1920" height="1080" alt="VGT Dashboard Matrix" src="https://github.com/user-attachments/assets/6f6f8488-f04b-4732-93ba-6ee69ad1ad2e" />
 
+---
 
-## 🚀 V5.0.1 — DIAMANT SUPREME L7 GHOST EDITION
+## 🔬 The Project: What is the Auto-Punisher?
 
-**V5.0.1 is the current release.** Security patch over V5.0.0 — mandatory update for all users.
+The VGT Auto-Punisher started as an experiment: **Can we build a highly kinetic, behavior-based Intrusion Detection System without compiling C or Rust, relying solely on standard Linux userspace tools?**
 
-### What V5 can do that nothing else can
+Version 6.3.4 is the peak of this specific architectural exploration. It combines a Python-based Raw Socket listener (to inspect TLS SNI and HTTP Host headers off the wire) with an asynchronous AWK-based analysis engine.
 
 ```
 V4.x thought in IPs.
-V5.0.0 thinks in intentions.
+V5+ thinks in intentions.
+V6.3.4 is where that idea reached the ceiling of what Bash/AWK can safely do.
 ```
 
-V5 deploys a **Python Raw Socket Ghost Sensor** that reads TLS SNI handshakes and HTTP Host headers directly off the wire — before the kernel processes them. Combined with the proven L4 engine, Auto-Punisher now knows not just *who* is connecting, but *what* they are trying to reach.
+### Current R&D Capabilities
 
-```
-Direct IP access → no domain → instant ban [🎯]
-Unknown domain   → not whitelisted → instant ban [🎯]
-Whitelisted domain → allow with rate-limits
-SSH from unknown IP → instant ban [🔐]
-Flash-burst → instant ban [⚡]
-/24 coordinated attack → subnet ban [☢]
-/16 roaming scanner → sector ban [☠]
-```
-
-### V5.0.1 Full Feature Set
-
-| Feature | Description |
+| Experimental Feature | Description |
 |---|---|
-| **L7 Ghost Sensor** | Python Raw Socket reads TLS SNI + HTTP Host directly off the wire — zero overhead |
-| **Domain Whitelisting** | Only whitelisted domains are allowed — everything else triggers instant ban |
-| **SNI Spoofing Kill** | Any foreign/unknown domain → `[🎯]` DOM-KILL instantly — no tolerance |
-| **Mobile Noise Tolerance** | `DIRECT_IP_OR_MALFORMED` (mobile reconnects, TLS resumption) → 3 strikes before ban |
-| **L4 + L7 Hybrid** | Web ports (80/443/8443) use L7 Ghost, all other ports use L4 SYN tracking |
-| **Auto-Pilot Mode** | No prompt on startup — all ports detected and split automatically |
-| **SSH Zero-Tolerance** | First SSH packet from unknown IP → instant ban — 0 hits tolerance |
-| **Velocity Strike** | Flash-burst > 5 hits/second → instant ban `[⚡]` |
-| **Surgical Strike** | > 15 hits from single IP → 24h ban `[✖]` |
-| **Infrastructure Strike** | > 30 hits from /24 subnet → entire subnet banned `[☢]` |
-| **Macro Strike** | > 150 hits from /16 sector → entire sector banned `[☠]` |
-| **Forgiveness Protocol** | All bans auto-expire after 24h — no permanent lockouts |
-| **systemd Support** | Runs as persistent background service — auto-starts after reboot |
-| **Unicode TUI Dashboard** | Professional terminal dashboard with RGB ANSI colors |
-| **Strike Icons** | `[🎯]` DOM · `[🔐]` SSH · `[⚡]` Velocity · `[✖]` Terminated · `[☢]` Infra · `[☠]` Macro |
-| **DPI Sanitization** | XMAS, NULL, MSS anomaly, INVALID state dropped at Layer 4 |
-| **BBR + Kernel Hardening** | TCP stack optimized for performance and resilience |
-| **IPv6 Dual-Stack** | Full IPv4 + IPv6 monitoring and termination |
-| **Anti-Log-Spam Cache** | Legitimate users never flood the journal — 1s cache per IP/domain pair |
-| **CWE-77 Fix** | SNI/Host header data fully sanitized before any shell execution context |
-| **CWE-117 Fix** | AWK Render Engine output sanitized — log forging via crafted headers patched |
+| **L7 SNI Extraction** | Python `AF_PACKET` socket reads TLS Client Hello packets directly off the wire to verify intended domains |
+| **Domain Strict-Lock** | Any SNI/Host request not matching the local whitelist triggers a kinetic strike |
+| **IPC Strike Engine** | Actions are passed via named pipes (`/tmp/vgt_action_queue`) to a background daemon, preventing `system()` fork-bombs |
+| **Heuristic Aggregation** | Tracking flash-bursts, port scans, and roaming /16 subnet scanners entirely in RAM |
+| **SMB Honeypot** | Zero-overhead TCP listener on Port 445 — distinguishes active EternalBlue payloads from passive scanners |
+| **Unicode TUI Dashboard** | Lock-free terminal UI visualizing active threats and network velocity in real-time |
 
-### Strike Priority Order
+---
+
+## 🏛️ Experimental Architecture (Userspace Hybrid)
 
 ```
-[🎯] DOM-KILL     Priority 0a — Foreign/unknown domain (SNI Spoofing) → instant
-[🎯] DOM-KILL     Priority 0b — DIRECT_IP_OR_MALFORMED → after 3 hits (mobile tolerance)
-[🔐] SSH-KILL     Priority 1  — SSH from non-whitelisted IP → instant
-[⚡] VELOCITY     Priority 2 — Flash-burst > 5 hits/sec → instant
-[✖] RATE-LIMIT    Priority 3 — > 15 hits (whitelisted domains only)
-[☢] INFRA         Priority 4 — /24 subnet threshold
-[☠] MACRO         Priority 5 — /16 sector threshold
+Adversarial Packet arrives at Interface
+    ↓
+[ LAYER 4: Netfilter / iptables ]
+    → iptables O(1) ipset lookup (Drops known threats instantly)
+    → Drops INVALID states, XMAS, NULL scans
+    ↓
+[ LAYER 7: Python Raw Socket Sensor ]
+    → Sniffs Port 80/443 traffic (Userspace)
+    → Extracts SNI & HTTP Host Headers
+    → Applies strictly alphanumeric sanitization
+    → Writes to local Syslog
+    ↓
+[ ANALYSIS: AWK Render & Rules Engine ]
+    → Tails journalctl stream
+    → Aggregates state in-memory (O(1) bucketing)
+    → Checks against Domain/IP Whitelists
+    → Evaluates Velocity, Port-Probing, and SNI Spoofing
+    ↓
+[ EXECUTION: IPC Queue ]
+    → Passes trigger data via Named Pipe
+    → Background bash loop executes `ipset add` (Zero-Shell Eval)
 ```
 
-### New TUI Dashboard (V5)
+### Strike Logic
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│   VGT AUTO-PUNISHER V5.0.1 - DIAMANT SUPREME (L7 SNI GHOST-SENSOR)                                          │
-├────────┬─────────────────┬──────────────────┬───────────────┬───┬───┬───┬───┬──────────┤
-│ ZEIT   │ QUELL-IP        │ DOMAIN (SNI/L7)  │ ZIEL (PORT)   │ B │ H │ R │ S │ STATUS   │
-├────────┼─────────────────┼──────────────────┼───────────────┼───┼───┼───┼───┼──────────┤
-│ 12:32  │ 185.128.37.145  │ example.com      │ 443 [WEB]     │ 1 │ 1 │ 1 │ 1 │ TRACKING │
-│ 12:33  │ 94.102.61.8     │ DIRECT_IP        │ 443 [WEB]     │ 1 │ 1 │ 1 │ 1 │ DOM-KILL │
-│ 12:33  │ 185.220.101.47  │ N/A (L4 SYN)     │ 22  [SSH]     │ 1 │ 1 │ 1 │ 1 │ SSH-KILL │
-├────────┴─────────────────┴──────────────────┴───────────────┴───┴───┴───┴───┴──────────┤
-│ [🎯] SNI/HOST VIOLATION: IP 94.102.61.8 terminiert (Zugriff auf: DIRECT_IP).            │
-│ [🔐] ZERO-TOLERANCE: IP 185.220.101.47 terminiert (Illegaler L4 SSH-Zugriff).           │
-╰──────────────────────────────────────────────────────────────────────────────────────────╯
+[🎯] DOM-KILL     — Foreign/unknown domain (SNI Spoofing) → instant
+[🎯] DOM-KILL     — DIRECT_IP_OR_MALFORMED → after 3 hits (mobile noise tolerance)
+[🔐] SSH-KILL     — SSH from non-whitelisted IP → instant
+[⚡] VELOCITY     — Flash-burst > threshold hits/sec → instant
+[✖] RATE-LIMIT   — Single IP threshold exceeded
+[☢] INFRA        — /24 subnet threshold exceeded
+[☠] MACRO        — /16 sector threshold exceeded
+[📁] SMB         — Port 445 Honeypot: active exploit payload or passive scan
 ```
 
 ---
 
-## 🔴 CRITICAL — CONFIGURE BEFORE RUNNING
+## 🛠️ Educational Setup & Testing
 
-> ### ⚠️ YOU WILL LOCK YOURSELF OUT IF YOU SKIP THIS ⚠️
+If you want to study the code, test the Python Raw Socket implementation, or analyze the IPC queuing system in a sandboxed environment:
 
-### Step 1 — Whitelist your IP
+### Step 1 — Configure Whitelists (CRITICAL)
 
-```bash
-nano punisher5.sh
+> **⚠️ YOU WILL LOCK YOURSELF OUT IF YOU SKIP THIS**
 
-# Find this line and add your IP:
-readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 YOUR.IP.HERE"
-
-# ISP rotates your IP? Use /24:
-readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 YOUR.IP.0/24"
-
-# IPv6:
-readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10 2a02:xxxx:xxxx:xxxx::/64"
-```
-
-> **Why /24?** Many ISPs rotate your IP within a /24 block. Whitelist the whole subnet to avoid locking yourself out on reconnect.
-
-### Step 2 — Whitelist your Domains
+Before running the script, you must configure the whitelists. The engine is extremely aggressive and will lock you out of your own server if your IP or domain is not listed.
 
 ```bash
-# Find this line and add ALL domains your server hosts:
-readonly WHITELIST_DOMAINS="example.com www.example.com yourdomain.de www.yourdomain.de"
+nano vgt-auto-punisher.sh
+
+# 1. Add your admin IP/Subnet:
+readonly WHITELIST_IPS="127.0.0.1 ::1 fe80::/10 YOUR_IP_HERE"
+
+# Example with /24 (for ISPs that rotate IPs within a subnet):
+readonly WHITELIST_IPS="127.0.0.1 ::1 fe80::/10 YOUR.IP.0/24"
+
+# 2. Add legitimate domains hosted on this machine:
+readonly WHITELIST_DOMAINS="example.com www.example.com"
 ```
 
-> **Important:** Any domain NOT on this list will trigger an instant DOM-KILL. Add every domain your server legitimately serves — including subdomains.
-
-### Step 3 — Verify Python3 and Raw Socket
+### Step 2 — Verify Python3 and Raw Socket
 
 ```bash
 # Check Python3
@@ -179,86 +158,46 @@ python3 -c "import socket; s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 
 
 > If `Raw Socket OK` — you're ready. If `Operation not permitted` — your VPS provider may restrict `AF_PACKET`. This is rare on dedicated VPS (Hetzner, Strato, netcup) but can occur on OpenVZ containers.
 
+### Step 3 — Run
+
 ```bash
-# Install Python3 if not present
-apt-get install python3 -y
+# Requires root for AF_PACKET and iptables manipulation
+sudo ./vgt-auto-punisher.sh
 ```
 
-### Step 4 — Fix journalctl filter (Required for L7)
+### 🆘 Emergency Reset
 
-The L7 Ghost Sensor writes to syslog. Open the script and change one line:
-
-```bash
-# Find this line:
-journalctl -kf --grep="($LOG_PREFIX|$L7_PREFIX)"
-
-# Replace with:
-journalctl -f --grep="($LOG_PREFIX|VGT_L7)"
-```
-
-> **Why?** The `-k` flag limits journalctl to kernel messages only. Removing it allows the L7 Python sensor output to appear in the dashboard.
-
-### Set your Limits
+If you lock yourself out during testing, access your VPS emergency console and flush the sets:
 
 ```bash
-readonly IP_THRESHOLD=15           # Hits bis zum Einzel-IP Ban (Für legitime Domains)
-readonly L7_STRIKE_THRESHOLD=3     # Toleranz für fehlerhafte/leere SNI (Background-Noise Mobile)
-readonly RANGE_THRESHOLD=30        # Hits bis zum /24 Subnetz Ban (v4)
-readonly WIDE_RANGE_THRESHOLD=150  # Globales Sektor-Limit (/16)
-readonly VELOCITY_LIMIT=5          # Max Hits pro Sekunde
-readonly BAN_TIME=86400            # 24 Stunden Ban-Dauer
-```
-
-### 🆘 Already Locked Out?
-
-```bash
-# Option A — Flush all bans
 ipset flush VGT_BANNED_V4
 ipset flush VGT_BANNED_V6
-
-# Option B — Remove all iptables rules
 iptables -F INPUT
 ip6tables -F INPUT
 ```
 
-> Use your hosting provider's emergency console (Strato KVM, Hetzner Console, netcup KVM). All bans auto-expire after 24h anyway.
+> All bans auto-expire after 24h anyway. Emergency console (Strato KVM, Hetzner Console, netcup KVM) is your fallback.
 
 ---
 
 ## ⚙️ Run as systemd Service
 
-V5.0.1 is designed to run as a persistent background service — no terminal required, auto-starts after every reboot.
-
-### Service Unit
-
-Create `/etc/systemd/system/vgt-punisher.service`:
-
 ```ini
 [Unit]
-Description=VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (DIAMANT CORE)
-After=network-online.target iptables.service netfilter-persistent.service
+Description=VGT Auto-Punisher — Experimental Userspace IDS
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-# Explizite Root-Deklaration für direkten Kernel-Netfilter-Zugriff
 User=root
 WorkingDirectory=/root
-
-# Kinetische Umgebungs-Parameter
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-Environment="TERM=xterm-256color"
-
-# Pre-Flight Check & Execution
 ExecStartPre=/bin/chmod +x /root/vgt_punisher.sh
 ExecStart=/bin/bash /root/vgt_punisher.sh
-
-# Hochverfügbarkeits-Schleife (Zero-Downtime Toleranz)
 Restart=always
 RestartSec=5s
-
-# Telemetrie-Routing
 SyslogIdentifier=vgt-punisher
 StandardOutput=journal
 StandardError=journal
@@ -267,262 +206,47 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-In your Bash script (/root/vgt_punisher.sh), add this line immediately after `set -Eeuo pipefail`:
-
 ```bash
-# VGT Path Alignment
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-```
-
-### Installation
-
-```bash
-# Step 1 — Deploy
-cp punisher5.sh /root/vgt_punisher.sh
-chmod +x /root/vgt_punisher.sh
-
-# Step 2 — Create service
-nano /etc/systemd/system/vgt-punisher.service
-
-# Step 3 — Enable and start
 systemctl daemon-reload
 systemctl enable vgt-punisher
 systemctl start vgt-punisher
 
-# Step 4 — Verify
-systemctl status vgt-punisher
-```
-
-### Live Monitoring
-
-```bash
-# Watch the full TUI dashboard even in background mode:
+# Monitor
 journalctl -u vgt-punisher -f -o cat
-
-# Watch only kills:
-journalctl -u vgt-punisher -f -o cat | grep -E "STRIKE|SCHLAG|TERMINATED|KILL"
 ```
 
 ---
 
-## 🚀 Installation
-
-### Requirements
-
-| Tool | Purpose |
-|---|---|
-| `ipset` | High-speed IP blocklist |
-| `iptables` / `ip6tables` | Firewall rules |
-| `journalctl` | Log stream |
-| `awk` | Stream analysis engine |
-| `ss` | Port discovery |
-| `python3` | L7 Ghost Sensor (V5+) |
+## 🔧 Managing Bans
 
 ```bash
-# Debian / Ubuntu
-apt-get install ipset iptables iproute2 python3 -y
-```
-
-### Setup
-
-```bash
-# 1. Clone
-git clone https://github.com/visiongaiatechnology/vgt-auto-punisher.git
-cd vgt-auto-punisher
-
-# 2. Configure whitelist FIRST (see above)
-nano punisher5.sh
-# Edit: WHITELIST_IPS and WHITELIST_DOMAINS
-
-# 3. Make executable
-chmod +x punisher5.sh
-
-# 4. Run
-sudo ./punisher5.sh
-```
-
-### What happens on first run
-
-```
-1. Scans open ports via ss -tlnp
-2. Splits ports: L7 (80/443/8443) vs L4 (all others)
-3. Deploys L7 Ghost Sensor (Python Raw Socket)
-4. Applies kernel TCP hardening (BBR, syncookies, backlog)
-5. Creates ipset tables with 24h timeout
-6. Injects DPI rules (XMAS, NULL, MSS, INVALID)
-7. Injects scoped L4 LOG sensor (rate-limited to 50/s)
-8. Starts hybrid AWK analysis stream (L4 + L7)
-```
-
----
-
-## 📦 Previous Releases
-
-All previous versions remain available in the repository.
-
-> ⚠️ **V5.0.0 is vulnerable.** Do not use. Update to V5.0.1.
-
-### V4.7.3 — Supreme Auto-Pilot + SSH Zero-Tolerance
-`punisher47ssh.sh`
-
-| Feature | Description |
-|---|---|
-| **Auto-Pilot** | No prompt — all ports auto-detected on startup |
-| **SSH Zero-Tolerance** | First SSH contact from unknown IP → instant ban `[🔐]` |
-| **systemd Support** | Runs as persistent background service |
-
-```bash
-nano punisher47ssh.sh   # Configure WHITELIST_IPS
-chmod +x punisher47ssh.sh
-sudo ./punisher47ssh.sh
-```
-
----
-
-### V4.7.0 — Supreme Terminal UI + Port Mapping
-`punisher4-7.sh`
-
-| Feature | Description |
-|---|---|
-| **Unicode TUI** | Full box-drawing dashboard with RGB ANSI |
-| **Port Mapping** | `[WEB]` `[SSH]` `[FTP]` `[PNL]` `[NET]` service labels |
-| **Strike Icons** | `[⚡]` `[✖]` `[☢]` `[☠]` |
-
-```bash
-nano punisher4-7.sh   # Configure WHITELIST_IPS
-chmod +x punisher4-7.sh
-sudo ./punisher4-7.sh
-```
-
----
-
-### V4.6.2 — Velocity + Macro Strike Engine
-`auto-punisher4-6-2.sh`
-
-| Feature | Description |
-|---|---|
-| **Velocity Strike** | Flash-burst detection `[⚡]` |
-| **Macro Strike** | /16 sector kill `[☠]` |
-| **O(1) Bucketing** | Zero CPU overhead burst tracking |
-
-```bash
-nano auto-punisher4-6-2.sh   # Configure WHITELIST_IPS
-chmod +x auto-punisher4-6-2.sh
-sudo ./auto-punisher4-6-2.sh
-```
-
----
-
-## 🏛️ Architecture — L4 + L7 Hybrid (V5)
-
-```
-Packet arrives at server
-    ↓
-iptables INPUT Position 1
-    → ipset O(1) lookup → DROP if banned
-    ↓
-iptables INPUT Position 2-5
-    → DPI: INVALID state → DROP
-    → DPI: XMAS scan → DROP
-    → DPI: NULL scan → DROP
-    → DPI: MSS anomaly → DROP
-    ↓
-    ┌─────────────────────────────┐
-    │  Port 80 / 443 / 8443?      │
-    └──────┬──────────────────────┘
-           │ YES                    NO
-           ▼                        ▼
-    L7 Ghost Sensor           L4 LOG Sensor
-    (Python Raw Socket)       (iptables LOG)
-    → Read TLS SNI                → SYN tracking
-    → Read HTTP Host              → SSH Zero-Tolerance
-    → Sanitize input [CWE-77]     → Velocity detection
-    → Domain whitelist check      → Rate limiting
-    → Direct IP → DOM-KILL [🎯]
-           │                        │
-           └──────────┬─────────────┘
-                      ▼
-              journalctl stream
-              → Sanitized output [CWE-117]
-              → AWK Hybrid Analyzer
-              → Whitelist bypass
-              → Strike execution
-              → ipset ban (24h)
-                      ↓
-              After 24h → auto-expiry (Forgiveness Protocol)
-```
-
----
-
-## 📋 Port Reference
-
-| Port | Service | Layer | Monitor? |
-|---|---|---|---|
-| `22` | SSH | L4 | ✅ Zero-Tolerance |
-| `80` | HTTP | L7 | ✅ Domain check |
-| `443` | HTTPS | L7 | ✅ SNI check |
-| `8443` | HTTPS Alt | L7 | ✅ SNI check |
-| `2222` | Custom SSH | L4 | ⚠️ If moved |
-| `21` | FTP | L4 | ⚠️ Legacy |
-| `3306` | MySQL | L4 | ⚠️ Not internet-facing |
-| `25` | SMTP | L4 | ⚠️ Mail only |
-
----
-
-## 🔍 Managing Bans
-
-```bash
-# View all active bans
+# View active bans
 ipset list VGT_BANNED_V4
 ipset list VGT_BANNED_V6
 
-# Count total bans
-ipset list VGT_BANNED_V4 | grep -c "^[0-9]"
-
-# Emergency: unban specific IP
+# Unban specific IP
 ipset del VGT_BANNED_V4 1.2.3.4
 
-# Emergency: flush all
+# Flush all
 ipset flush VGT_BANNED_V4
 ipset flush VGT_BANNED_V6
-
-# Restore after reboot
-iptables-restore < /etc/iptables/rules.v4
-ip6tables-restore < /etc/iptables/rules.v6
 ```
 
 ---
 
-## 📦 System Specs
+## 📚 Learning Resources & Next Steps
 
-```
-VERSION           5.0.1 (DIAMANT SUPREME L7 GHOST EDITION)
-ARCHITECTURE      Hybrid L4 + L7 (iptables + ipset + Python Raw Socket + AWK)
-L4_SENSOR         Passive SYN LOG on non-web ports (rate-limited 50/s)
-L7_SENSOR         Python AF_PACKET Raw Socket — TLS SNI + HTTP Host extraction
-BAN_MECHANISM     ipset hash:net with 24h timeout (Forgiveness Protocol)
-BAN_DURATION      24 hours (configurable via BAN_TIME)
-STRIKE_MODES      6: DOM + SSH + Velocity + Surgical + Infrastructure + Macro
-STRIKE_ICONS      [🎯] DOM · [🔐] SSH · [⚡] Velocity · [✖] Rate · [☢] Infra · [☠] Macro
-DOMAIN_WHITELIST  Configurable — all non-whitelisted domains → instant ban
-DIRECT_IP_KILL    Foreign/unknown domain → instant ban (SNI Spoofing)
-MOBILE_TOLERANCE  DIRECT_IP_OR_MALFORMED → 3 strikes via L7_STRIKE_THRESHOLD (mobile noise)
-SSH_TOLERANCE     Zero — first contact from unknown IP = instant ban
-L7_STRIKE_THRESHOLD 3 hits for MALFORMED/empty SNI before ban
-VELOCITY_LIMIT    5 hits/second (Flash-Burst detection)
-WIDE_RANGE        /16 sector kill at 150 hits (Roaming-Scanner)
-PORT_SPLIT        L7: 80/443/8443 | L4: all other ports
-DPI               INVALID, XMAS, NULL scan, MSS anomaly
-PERSISTENCE       iptables-save after every ban
-IPv4_RANGES       /24 + /16 subnet ban
-IPv6              Single-IP ban (range bans disabled by design)
-TCP_HARDENING     BBR, syncookies, SYN backlog, FQ qdisc
-AUTO_PILOT        All ports auto-detected — no startup prompt
-SERVICE_MODE      systemd compatible
-OVERHEAD          ~0% CPU idle (event-driven) + minimal Python Ghost process
-REQUIREMENTS      python3 + AF_PACKET Raw Socket support
-SECURITY_FIXES    CWE-77 (Command Injection) + CWE-117 (Log Forging) — patched in V5.0.1
-```
+This project reached the ceiling of what is safely possible using Bash/AWK in userspace for network parsing. If you are interested in building **production-ready** network security tools, we highly recommend exploring:
+
+- **eBPF (Extended Berkeley Packet Filter):** The modern standard for true kernel-level packet inspection without context-switching overhead.
+- **XDP (eXpress Data Path):** Dropping packets at the network driver level before the kernel even allocates an `sk_buff`.
+- **Memory-Safe Languages:** Using Rust or Go for parsing untrusted network input.
+- **CrowdSec / nftables:** For real production use cases.
+
+**Recommended Reading:**
+- [Google Project Zero Blog](https://googleprojectzero.blogspot.com/)
+- *The Web Application Hacker's Handbook*
+- [Stanford's Cryptography MOOC](https://crypto.stanford.edu/)
 
 ---
 
@@ -530,31 +254,27 @@ SECURITY_FIXES    CWE-77 (Command Injection) + CWE-117 (Log Forging) — patched
 
 | Tool | Type | Purpose |
 |---|---|---|
-| ⚔️ **VGT Auto-Punisher** | **Reactive** | Bans attackers the moment they hit |
+| ⚔️ **VGT Auto-Punisher** | **R&D / Experimental** | Userspace IDS — educational exploration |
 | 🌐 **[VGT Global Threat Sync](https://github.com/visiongaiatechnology/vgt-global-threat-sync)** | **Preventive** | Daily feed sync — blocks known threats before arrival |
 | 🔥 **[VGT Windows Firewall Burner](https://github.com/visiongaiatechnology/vgt-windows-burner)** | **Windows** | 280,000+ APT IPs in native Windows Firewall |
 | 🔍 **[VGT Civilian Checker](https://github.com/visiongaiatechnology/Winsyssec)** | **Audit** | Windows security posture assessment |
-
-> **Recommended stack:** Global Threat Sync (preventive) + Auto-Punisher V5 (reactive L4+L7) = complete coverage.
 
 ---
 
 ## 🤝 Contributing
 
-Pull requests are welcome. For major changes, please open an issue first.
+Pull requests welcome. For major changes please open an issue first.
 
-Licensed under **AGPLv3** — *"For Humans, not for SaaS Corporations."*
+Licensed under **AGPLv3** — *"Open Source. Open Knowledge."*
 
 ---
 
-## 🏢 Built by VisionGaia Technology
+## 🏢 About VisionGaia Technology
 
 [![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
 
-VisionGaia Technology builds enterprise-grade security and AI tooling — engineered to the DIAMANT VGT SUPREME standard.
-
-> *"Tino wanted to throw the script away. V5.0.1 reads TLS handshakes off the wire, terminates direct IP access instantly, patches command injection — and looks damn good doing it."* 😄
+VisionGaia Technology is an R&D collective exploring experimental architectures, AI integration, and cybersecurity paradigms. We build to learn, we break things to understand them, and we share the results.
 
 ---
 
-*Version 5.0.1 (DIAMANT SUPREME L7 GHOST EDITION) — VGT Auto-Punisher // L4 Passive Radar + L7 SNI Ghost + DPI + Kernel Hardening // CWE-77 + CWE-117 patched*
+*VGT Auto-Punisher V6.3.4 — Experimental Userspace IDS // IPC Hardened Edition*
