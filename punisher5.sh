@@ -3,7 +3,7 @@
 # VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.4 - OPEN SOURCE DIAMANT HYBRID)
 # STATUS: DUAL-MODE ACTIVE (FULL DASHBOARD TUI + BULLETPROOF SERVICE TIER)
 # ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + IPC Strike Executor
-# SECURITY: DIAMANT VGT SUPREME - Zero-Shell Injection (IPC) & Anti-Fork-Bomb
+# SECURITY: DIAMANT VGT SUPREME - Zero-Shell Injection (IPC), Anti-Fork-Bomb & LPE-Safe
 # LICENSE: AGPLv3 (OPEN SOURCE) - GLOBAL PROLIFERATION PROTOCOL
 # ==============================================================================
 # 
@@ -44,7 +44,12 @@ readonly LOG_PREFIX="VGT_STRIKE_EVENT"
 readonly L7_PREFIX="VGT_L7_EVENT"
 readonly IPSET_V4="VGT_BANNED_V4"
 readonly IPSET_V6="VGT_BANNED_V6"
-readonly VGT_QUEUE="/tmp/vgt_action_queue"
+
+# [ DIAMANT FIX: SECURE PATHS ] - Verhinderung von Local Privilege Escalation (Symlink Attacks)
+# Nutzung von /run (tmpfs RAM-Disk) mit strikten 700 Permissions, um Manipulation durch www-data zu blockieren.
+readonly VGT_RUN_DIR="/run/vgt_punisher"
+readonly VGT_QUEUE="$VGT_RUN_DIR/action_queue"
+readonly VGT_GHOST_SCRIPT="$VGT_RUN_DIR/vgt_l7_ghost.py"
 
 # --- VGT MASTER WHITELISTS (GEHÄRTET) ---
 readonly WHITELIST_IPS="127.0.0.1 ::1 0.0.0.0 :: fe80::/10"
@@ -87,7 +92,7 @@ function deploy_l7_ghost() {
     pkill -f vgt_l7_ghost.py 2>/dev/null || true
     sleep 0.5
 
-    cat << 'EOF' > /tmp/vgt_l7_ghost.py
+    cat << 'EOF' > "$VGT_GHOST_SCRIPT"
 import socket, struct, sys, syslog, time
 
 syslog.openlog(ident="VGT_L7_GHOST")
@@ -167,7 +172,7 @@ try:
 except Exception as e:
     syslog.syslog(f"CRITICAL ERROR: {e}")
 EOF
-    nohup python3 /tmp/vgt_l7_ghost.py >/dev/null 2>&1 &
+    nohup python3 "$VGT_GHOST_SCRIPT" >/dev/null 2>&1 &
 }
 
 # ==============================================================================
@@ -218,6 +223,10 @@ function init_defense() {
         exit 1
     fi
     
+    # [ DIAMANT FIX: Sichern des Verzeichnisses vor Symlink-Attacks (www-data Isolation) ]
+    mkdir -p "$VGT_RUN_DIR"
+    chmod 700 "$VGT_RUN_DIR"
+    
     if [[ "$VGT_DISPLAY_MODE" == "VISUAL" ]]; then
         clear
         echo -e "${C_PURPLE}Injektiere VGT V6.3.4 (OS) IPC Schilde...${C_RESET}"
@@ -261,7 +270,9 @@ function cleanup_ui() {
     fi
     pkill -f "journalctl -n 0 -f --grep" 2>/dev/null || true
     kill -9 $VGT_EXEC_PID 2>/dev/null || true
-    rm -f "$VGT_QUEUE"
+    
+    # Clean up the secure runtime files
+    rm -rf "$VGT_RUN_DIR"
     pkill -P $$ 2>/dev/null || true
     exit 0
 }
