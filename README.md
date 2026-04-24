@@ -23,7 +23,7 @@ This project is a **Proof of Concept (PoC)** exploring asynchronous userspace pa
 
 ## 🚨 CRITICAL SECURITY NOTICE — VULNERABILITY DISCLOSURE
 
-**All users running legacy versions (<= V6.3.2) must update to V6.3.4 or sunset the service.**
+**All users running legacy versions (<= V6.3.2) must update to V6.4.0 or sunset the service.**
 
 Two severe security vulnerabilities were identified in the legacy architecture by an independent security researcher:
 
@@ -31,6 +31,7 @@ Two severe security vulnerabilities were identified in the legacy architecture b
 |---|---|---|
 | **CWE-77** — Command Injection | L7 Ghost Sensor | Unsanitized SNI/Host header data could be passed into a shell execution context, allowing Remote Code Execution (RCE) |
 | **CWE-117** — Log Forging | AWK Engine | Attacker-controlled input could inject forged entries into the journal stream, bypassing detection logic |
+| **CWE-59** - Symlink Attack | Insecure /tmp | Symlink attack vector fixed |
 
 **Patch Status (V6.3.4):** The architecture has been overhauled. Shell evaluations have been completely replaced with a direct IPC (Inter-Process Communication) queue, eliminating the RCE vector. Inputs are now strictly sanitized before reaching the rendering engine.
 
