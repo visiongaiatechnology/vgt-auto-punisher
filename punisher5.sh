@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.3.4 - OPEN SOURCE DIAMANT HYBRID)
+# VISIONGAIA TECHNOLOGY: AUTO-PUNISHER (V6.4.0 - OPEN SOURCE DIAMANT HYBRID)
 # STATUS: DUAL-MODE ACTIVE (FULL DASHBOARD TUI + BULLETPROOF SERVICE TIER)
 # ARCHITECTURE: Asynchronous Tick-Render Engine + L4/L7 Ghost DPI + IPC Strike Executor
 # SECURITY: DIAMANT VGT SUPREME - Zero-Shell Injection (IPC), Anti-Fork-Bomb & LPE-Safe
