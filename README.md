@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-7.2.0-brightgreen?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-7.3.0-brightgreen?style=for-the-badge)](#)
 [![Architecture](https://img.shields.io/badge/Architecture-eBPF%2FXDP_Kernel_Hybrid-orange?style=for-the-badge)](#)
 [![Status](https://img.shields.io/badge/Status-R%26D_/_Experimental-yellow?style=for-the-badge)](#)
 [![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
@@ -36,6 +36,22 @@ Three severe vulnerabilities were identified in the legacy architecture:
 **Patch Status (V6.4.0+):** Shell evaluations replaced with direct IPC queue. All inputs strictly sanitized before reaching the rendering engine. V7.2.0 extends this with `journalctl _UID=0` log verification — log forging from unprivileged processes is structurally impossible.
 
 🙏 **Special Thanks:** Massive respect and gratitude to **Will** ([github.com/gtech](https://github.com/gtech)) for responsibly disclosing these vulnerabilities, verifying the textbook command injection, and providing invaluable architectural feedback. His audit was the catalyst for reframing this project as a transparent, educational R&D initiative.
+
+---
+
+## 📋 Changelog — V7.3.0
+
+> **V7.3.0 closes the two structural risks introduced in V7.2.0** — runtime compiler dependency and JA3 spoofability — with a Zero-Compiler Loader and the VGT TLS Behavioral Risk Engine.
+
+| Feature | V7.2.0 | V7.3.0 |
+|---|---|---|
+| **eBPF Loading** | Runtime Clang compilation on target system | Embedded Base64 ELF bytecode — no compiler on production server |
+| **Compiler Dependency** | `clang`, `llvm`, `linux-headers` required at runtime | `bpftool` only — compiler toolchain eliminated from server |
+| **eBPF Failsafe** | Compilation failure = no XDP protection | Kernel verifier reject → automatic IPSet fallback, no protection gap |
+| **JA3 Spoofing Resistance** | Static MD5 hash matching — bypassable via `utls`/`curl-impersonate` | VGT-TRE multi-dimensional behavioral analysis — spoofing detected heuristically |
+| **Handshake Velocity** | Not tracked | TLS handshake / HTTP request ratio — flood without HTTP → instant block |
+| **ALPN Validation** | Not checked | Chrome/H2 ALPN claims verified — missing `h2` extension = spoofing flag |
+| **GREASE Consistency** | Not checked | Chrome signatures without GREASE values = integrity alarm |
 
 ---
 
@@ -136,53 +152,101 @@ Adversarial Packet arrives at NIC
 
 ---
 
-## 🔑 Phase A — eBPF/XDP Kernel Offloading
+## 🔑 Phase A — eBPF/XDP Zero-Compiler Loader *(Hardened V7.3.0)*
 
-The most significant architectural advancement in Auto-Punisher history. At runtime, the system:
+V7.2.0 generated and compiled C code at runtime via Clang — introducing two structural risks: compiler toolchains on production servers aid post-compromise privilege escalation, and automatic kernel header updates silently break compilation at 3am. V7.3.0 eliminates both.
 
-1. **Generates** a high-performance C program (`vgt_xdp.c`) containing the ban map definitions and XDP drop logic
-2. **Compiles** it via LLVM/Clang into BPF bytecode
-3. **Loads** it directly into the network driver — atomic protocol, zero downtime
+**The optimized eBPF bypass is embedded as a Base64-encoded ELF sector directly in the bash script.** No compiler is required on the production system.
 
-```c
-// XDP Drop Logic (simplified)
-if (bpf_map_lookup_elem(&v4_ban_map, &src_ip)) {
-    return XDP_DROP;  // Packet never reaches kernel TCP/IP stack
-}
+```
+V7.3.0 Load Protocol — Dual-Layer Failsafe:
+
+Step 1: Extract embedded bytecode
+  base64 --decode $EMBEDDED_XDP_OBJECT > /run/vgt_punisher/vgt_xdp.o
+
+Step 2: Attempt kernel verifier load via bpftool
+  bpftool prog load vgt_xdp.o /sys/fs/bpf/vgt_xdp
+
+  → Verifier accepts: XDP attached to NIC driver
+    Packets dropped at driver level — TCP/IP stack never reached
+
+  → Verifier rejects (kernel structure mismatch):
+    Immediate de-escalation to hardened IPSet fallback
+    No protection gap — no abort — no unhandled failure
 ```
 
-**Ban Map Capacity:**
+**What this means operationally:**
+- Production server requires `bpftool` only — no `clang`, `llvm`, `linux-headers`
+- Kernel updates no longer silently break the XDP loader
+- Post-compromise attack surface reduced — compiler toolchain absent from server
+
+**Ban Map Capacity (unchanged):**
 - `v4_ban_map`: 1,000,000 IPv4 entries
 - `v6_ban_map`: 500,000 IPv6 entries
 
-Attacker packets are dropped at the NIC driver level. A DDoS that would saturate a userspace daemon vanishes at near-zero CPU cost.
-
 ---
 
-## 🔑 Phase B — JA3 TLS Fingerprinting
+## 🔑 Phase B — JA3 + VGT TLS Behavioral Risk Engine (VGT-TRE) *(Hardened V7.3.0)*
 
-V7.2.0 extends the L7 Ghost Sensor with cryptographic client fingerprinting. Every TLS Client Hello is deconstructed:
+V7.2.0 used static JA3 MD5 matching — bypassable via `utls` (Go) or `curl-impersonate` by mirroring Chrome's exact cipher suite order. An attacker could declare themselves a legitimate browser and pass the filter entirely.
+
+V7.3.0 extends JA3 with **multidimensional behavioral analysis**. Static signatures are the first gate; VGT-TRE is the second.
 
 ```
-JA3 Input Fields:
-  → SSLVersion
-  → Ciphers (sorted list)
-  → Extensions (sorted list)
-  → EllipticCurves
-  → EllipticCurvePointFormats
-
-JA3 Hash = MD5(SSLVersion,Ciphers,Extensions,EllipticCurves,ECPointFormats)
+Incoming L7 Packet
+        ↓
+JA3 Signature Extraction
+        ↓
+JA3 in malicious database? ──[Match]──→ BAN
+        ↓ [No match]
+VGT TLS Behavioral Risk Engine (VGT-TRE)
+        ↓
+   ┌────────────────────┬──────────────────┬──────────────────────┐
+   ↓                    ↓                  ↓                      ↓
+Handshake           ALPN               GREASE               Heuristic
+Velocity            Mismatch           Consistency          Score Sum
+Ratio > threshold   Claims Chrome      Chrome claims but    > threshold
+→ flag              but no h2/ALPN     lacks GREASE values  → BAN
+   └────────────────────┴──────────────────┴──────────────────────┘
 ```
 
-Known malicious TLS stacks are blocked **by their cryptographic signature** regardless of IP address:
+### Heuristic 1 — Handshake Velocity Ratio
 
-| Framework | JA3 Behavior | Result |
-|---|---|---|
-| **Metasploit** | Fixed cipher suite order, known extensions | Instant block |
-| **Cobalt Strike** | Characteristic TLS profile | Instant block |
-| **Masscan** | Minimal TLS handshake, distinctive fingerprint | Instant block |
+```
+Ratio = TLS Handshakes / Successful HTTP Requests (per source IP, 5s window)
 
-Rotating residential IPs no longer provide evasion. The malware framework's TLS implementation is the identifier.
+Threshold: > 15 TLS handshakes with 0 HTTP transfers → BAN
+
+Logic: A real browser opens TLS, then immediately sends HTTP requests.
+A scanner opens TLS repeatedly without transferring data.
+A perfect Chrome JA3 spoof that never GETs anything is still a scanner.
+```
+
+### Heuristic 2 — ALPN Mismatch Detection
+
+```
+Modern Chrome / Firefox / Safari: ALPN extension present, declares h2 or http/1.1
+Many spoofing tools: copy cipher suite order, omit ALPN or negotiate deprecated protocols
+
+Detection: Client claims Chrome JA3 + missing/incorrect ALPN extension → spoofing flag
+```
+
+### Heuristic 3 — GREASE Structural Consistency
+
+```
+Chrome / Safari behavior: Inject random GREASE dummy values into
+  → Supported Groups
+  → Extensions list
+  → Cipher Suites
+  → Key Share entries
+  (RFC 8701 — prevents server-side hardcoding)
+
+Spoof behavior: Hardcode Chrome's known cipher order, omit GREASE randomization
+
+Detection: Chrome JA3 + no GREASE values anywhere in handshake → integrity alarm
+```
+
+**What this means operationally:** An attacker using `curl-impersonate` with a perfect Chrome JA3 hash will still fail VGT-TRE if they flood TLS handshakes, omit ALPN negotiation, or produce a structurally static handshake that no real browser would generate.
 
 ---
 
@@ -205,6 +269,7 @@ A ban discovered by one node propagates to the full cluster within milliseconds.
 [🎯] DOM-KILL     — Foreign/unknown domain (SNI mismatch) → instant XDP_DROP
 [🎯] DOM-KILL     — DIRECT_IP_OR_MALFORMED → after 3 hits (mobile noise tolerance)
 [🎯] JA3-KILL     — Known malicious TLS fingerprint → instant XDP_DROP
+[🧠] TRE-KILL     — VGT-TRE behavioral score exceeds threshold (velocity/ALPN/GREASE)
 [🔐] SSH-KILL     — SSH from non-whitelisted IP → instant
 [⚡] VELOCITY     — Flash-burst exceeds threshold → instant
 [✖]  RATE-LIMIT   — Single IP threshold exceeded
@@ -270,8 +335,8 @@ V7.2.0: ANSI \033[H cursor repositioning + line-level clears
 | **OS** | Linux (kernel 5.10+ recommended for XDP native mode) |
 | **Privileges** | root (eBPF map loading, AF_PACKET, iptables) |
 | **Python** | 3.8+ |
-| **Compiler** | LLVM/Clang (for eBPF compilation: `apt install clang llvm`) |
-| **Tools** | `ipset`, `iptables`/`ip6tables`, `iproute2` (`ip link`) |
+| **Compiler** | None required on production server (V7.3.0 Zero-Compiler Loader) |
+| **Tools** | `bpftool`, `ipset`, `iptables`/`ip6tables`, `iproute2` (`ip link`) |
 | **Optional** | Redis instance (for cluster sync), Prometheus/Grafana (for metrics) |
 
 ---
@@ -284,20 +349,21 @@ V7.2.0: ANSI \033[H cursor repositioning + line-level clears
 # Update package index
 sudo apt update
 
-# Install eBPF/XDP toolchain + kernel headers
-sudo apt install -y clang llvm bpftool libbpf-dev linux-headers-$(uname -r)
+# Install required tools (no compiler needed — V7.3.0 Zero-Compiler Loader)
+sudo apt install -y bpftool ipset iptables python3
 
-# Verify Clang
-clang --version
+# Optional: install linux-headers only if you intend to build custom eBPF objects
+# (not required for standard deployment)
+# sudo apt install -y clang llvm libbpf-dev linux-headers-$(uname -r)
 
 # Verify bpftool
 bpftool version
 
-# Verify AF_PACKET (required for L7 Ghost Sensor)
+# Verify AF_PACKET (required for L7 Ghost Sensor + VGT-TRE)
 python3 -c "import socket; s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)); print('AF_PACKET OK')"
 ```
 
-> **Note:** On some VPS providers the `linux-headers-$(uname -r)` package may not be available if the provider runs a custom kernel. In that case install the closest available headers: `sudo apt install -y linux-headers-generic`. XDP native mode requires kernel 5.10+ — older kernels fall back to iptables/ipset automatically.
+> **Note:** XDP native mode requires kernel 5.10+ and a supported NIC driver (Hetzner, Strato, netcup — supported). If the kernel verifier rejects the embedded bytecode, V7.3.0 automatically de-escalates to the hardened IPSet fallback — no manual intervention required.
 
 ---
 
@@ -407,12 +473,14 @@ ip6tables -F INPUT
 
 ## 📚 What This Project Teaches
 
-V7.2.0 is a working demonstration of:
+V7.3.0 is a working demonstration of:
 
-- **eBPF/XDP runtime compilation** — generating and loading kernel programs dynamically from a bash/python control plane
-- **JA3 TLS fingerprinting** — extracting cryptographic client identifiers from raw TLS Client Hello packets
-- **RESP protocol implementation** — building a Redis-compatible PubSub client from raw TCP sockets without any library
-- **systemd journal UID verification** — using `_UID=0` filtering for log integrity
+- **eBPF portable bytecode deployment** — embedding pre-compiled ELF objects for zero-compiler production loading
+- **Dual-layer failsafe architecture** — graceful de-escalation from XDP to IPSet without protection gaps
+- **TLS behavioral fingerprinting** — handshake velocity, ALPN negotiation, and GREASE consistency as spoofing signals
+- **JA3 + behavioral layering** — combining static signature matching with dynamic heuristics
+- **Redis RESP protocol** — native PubSub client over raw TCP sockets, zero external libraries
+- **systemd journal UID verification** — `_UID=0` filtering for unforgeable log integrity
 - **AF_PACKET raw socket sniffing** — deep packet inspection from Python userspace
 
 For production security, the next steps are:
@@ -454,4 +522,4 @@ VisionGaia Technology is an R&D collective exploring experimental architectures,
 
 ---
 
-*VGT Auto-Punisher V7.2.0 — eBPF/XDP Kernel Hybrid IDS // JA3 TLS Fingerprinting // Redis Cluster Sync // Prometheus Metrics // Anti-Log-Spoofing // Dynamic IPv6 /64 Banning // Double-Buffered TUI // AGPLv3*
+*VGT Auto-Punisher V7.3.0 — eBPF/XDP Zero-Compiler Loader // VGT-TRE Behavioral Analysis // JA3 + ALPN + GREASE Heuristics // Redis Cluster Sync // Prometheus Metrics // Anti-Log-Spoofing // Dynamic IPv6 /64 Banning // AGPLv3*
