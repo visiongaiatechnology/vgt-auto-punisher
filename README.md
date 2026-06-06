@@ -450,6 +450,145 @@ journalctl -u vgt-punisher -f -o cat
 
 ---
 
+## 🔧 Advanced: Custom eBPF Bytecode Compilation
+
+The embedded bytecode covers most deployments. If your kernel differs significantly from the build environment (custom kernel forks, non-standard distributions, or significant ABI changes), compile `vgt_xdp.o` directly against your running kernel's headers for a guaranteed verifier-pass.
+
+### Build Environment Setup
+
+**Debian / Ubuntu:**
+```bash
+sudo apt update
+sudo apt install -y clang llvm libbpf-dev gcc-multilib linux-headers-$(uname -r)
+```
+
+**Rocky Linux / AlmaLinux / RHEL:**
+```bash
+sudo dnf install -y clang llvm libbpf-devel kernel-devel-$(uname -r)
+```
+
+---
+
+### The eBPF C Source (`vgt_xdp.c`)
+
+```c
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/in.h>
+#include <bpf/bpf_helpers.h>
+
+/* Map for blocked IPv4 addresses */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1000000);
+    __type(key, __u32);          // IPv4 address (32 bit)
+    __type(value, __u8);
+} v4_ban_map SEC(".maps");
+
+/* Map for blocked IPv6 addresses */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 500000);
+    __type(key, unsigned char[16]); // IPv6 address (128 bit)
+    __type(value, __u8);
+} v6_ban_map SEC(".maps");
+
+SEC("xdp")
+int xdp_drop_prog(struct xdp_md *ctx) {
+    void *data_end = (void *)(long)ctx->data_end;
+    void *data     = (void *)(long)ctx->data;
+    struct ethhdr *eth = data;
+
+    // Boundary check: frame must contain at least Ethernet header
+    if ((void *)(eth + 1) > data_end) return XDP_PASS;
+
+    // IPv4 branch
+    if (eth->h_proto == __constant_htons(ETH_P_IP)) {
+        struct iphdr *iph = (void *)(eth + 1);
+        if ((void *)(iph + 1) > data_end) return XDP_PASS;
+
+        __u32 src_ip = iph->saddr;
+        if (bpf_map_lookup_elem(&v4_ban_map, &src_ip)) return XDP_DROP;
+    }
+    // IPv6 branch
+    else if (eth->h_proto == __constant_htons(ETH_P_IPV6)) {
+        struct ipv6hdr *ip6h = (void *)(eth + 1);
+        if ((void *)(ip6h + 1) > data_end) return XDP_PASS;
+
+        if (bpf_map_lookup_elem(&v6_ban_map, &ip6h->saddr.in6_u.u6_addr8))
+            return XDP_DROP;
+    }
+
+    return XDP_PASS;
+}
+
+char _license[] SEC("license") = "GPL";
+```
+
+---
+
+### Compilation
+
+**Standard:**
+```bash
+clang -O2 -g -target bpf -c vgt_xdp.c -o vgt_xdp.o
+```
+
+**Debian/Ubuntu (multiarch header fix):**
+```bash
+# Use if compilation fails with missing <asm/types.h> or similar
+clang -O2 -g -target bpf \
+  -I/usr/include/$(uname -m)-linux-gnu \
+  -c vgt_xdp.c -o vgt_xdp.o
+```
+
+---
+
+### Integration into `vgt_punisher.sh`
+
+**Step 1 — Convert to Base64:**
+```bash
+base64 -w 0 vgt_xdp.o > vgt_xdp_base64.txt
+```
+
+**Step 2 — Insert into script:**
+
+Open `vgt_punisher.sh`, locate the `deploy_ebpf_xdp()` function, and replace the Base64 block inside the `cat << 'EOF'` construct:
+
+```bash
+cat << 'EOF' | base64 -d > "$VGT_XDP_OBJ" 2>/dev/null || true
+YOUR_BASE64_STRING_HERE
+EOF
+```
+
+**Step 3 — Enable kernel offload:**
+```bash
+# At the top of vgt_punisher.sh:
+readonly EBPF_OFFLOAD=true
+```
+
+---
+
+### Verification
+
+```bash
+# Restart the daemon
+sudo ./vgt_punisher.sh
+
+# TUI dashboard top-left should show:
+# SYSTEM CORES: [ ACTIVE | SECURED METRICS ]
+
+# Verify loaded eBPF programs
+sudo bpftool prog show
+
+# Verify active eBPF maps
+sudo bpftool map show
+```
+
+---
+
 ## 🆘 Emergency Reset
 
 If you lock yourself out during testing, access your VPS emergency console:
