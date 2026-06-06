@@ -274,26 +274,34 @@ V7.2.0: ANSI \033[H cursor repositioning + line-level clears
 | **Tools** | `ipset`, `iptables`/`ip6tables`, `iproute2` (`ip link`) |
 | **Optional** | Redis instance (for cluster sync), Prometheus/Grafana (for metrics) |
 
-### Check eBPF/XDP Support
-
-```bash
-# Verify Clang is available
-clang --version
-
-# Verify XDP support on your interface
-ip link show eth0 | grep xdp
-
-# Check AF_PACKET (required for L7 Ghost Sensor)
-python3 -c "import socket; s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)); print('AF_PACKET OK')"
-```
-
-> **Note:** XDP native mode requires a supported NIC driver (most cloud providers: Hetzner, Strato, netcup — supported). OpenVZ containers may not support XDP — the system falls back to iptables/ipset automatically.
-
 ---
 
 ## 🛠️ Setup
 
-### Step 1 — Configure Whitelists (CRITICAL)
+### Step 1 — Install Dependencies
+
+```bash
+# Update package index
+sudo apt update
+
+# Install eBPF/XDP toolchain + kernel headers
+sudo apt install -y clang llvm bpftool libbpf-dev linux-headers-$(uname -r)
+
+# Verify Clang
+clang --version
+
+# Verify bpftool
+bpftool version
+
+# Verify AF_PACKET (required for L7 Ghost Sensor)
+python3 -c "import socket; s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)); print('AF_PACKET OK')"
+```
+
+> **Note:** On some VPS providers the `linux-headers-$(uname -r)` package may not be available if the provider runs a custom kernel. In that case install the closest available headers: `sudo apt install -y linux-headers-generic`. XDP native mode requires kernel 5.10+ — older kernels fall back to iptables/ipset automatically.
+
+---
+
+### Step 2 — Configure Whitelists (CRITICAL)
 
 > **⚠️ YOU WILL LOCK YOURSELF OUT IF YOU SKIP THIS**
 
@@ -317,7 +325,7 @@ readonly REDIS_PORT=6379
 readonly JA3_BLOCKLIST="a0e9f5d64349fb13191bc781f81f42e1 ada70206e40642a3e4461f35503241d"
 ```
 
-### Step 2 — Run
+### Step 3 — Run
 
 ```bash
 sudo ./vgt-auto-punisher.sh
@@ -325,7 +333,7 @@ sudo ./vgt-auto-punisher.sh
 
 The daemon will: load the eBPF/XDP program, initialize ban maps, start the Ghost Sensor, register the Prometheus exporter on `127.0.0.1:9100`, and attach to the TUI dashboard.
 
-### Step 3 — Monitor
+### Step 4 — Monitor
 
 ```bash
 # Prometheus metrics
