@@ -1,664 +1,197 @@
-# ⚔️ VGT Auto-Punisher — Experimental Userspace/Kernel Hybrid IDS (R&D Project)
+<div align="center">
 
-[![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Linux-FCC624?style=for-the-badge&logo=linux)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-7.3.0-brightgreen?style=for-the-badge)](#)
-[![Architecture](https://img.shields.io/badge/Architecture-eBPF%2FXDP_Kernel_Hybrid-orange?style=for-the-badge)](#)
-[![Status](https://img.shields.io/badge/Status-R%26D_/_Experimental-yellow?style=for-the-badge)](#)
-[![IPv6](https://img.shields.io/badge/IPv6-SUPPORTED-blue?style=for-the-badge)](#)
-[![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
+# ⚔️ VGT Auto-Punisher
 
-> *"Don't rate-limit attackers. Terminate them."*
-> *AGPLv3 — Open Source. Open Knowledge.*
+### Archived predecessor of VGT GeDefense
+
+[![Status](https://img.shields.io/badge/Status-Archived-red?style=for-the-badge)](#project-status)
+[![Successor](https://img.shields.io/badge/Successor-VGT_GeDefense-00d9ff?style=for-the-badge)](https://github.com/visiongaiatechnology/gedefense)
+[![Final Version](https://img.shields.io/badge/Final_Version-7.3.0-brightgreen?style=for-the-badge)](#historical-release)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue?style=for-the-badge)](LICENSE)
+[![VGT](https://img.shields.io/badge/VGT-VisionGaiaTechnology-cyan?style=for-the-badge)](https://visiongaiatechnology.de)
+
+> **VGT Auto-Punisher has been discontinued and evolved into VGT GeDefense.**
+>
+> Active development, security improvements and future releases continue exclusively in the GeDefense repository.
+
+## ➜ [Open VGT GeDefense](https://github.com/visiongaiatechnology/gedefense)
+
+</div>
 
 ---
 
-## ⚠️ DISCLAIMER: EXPERIMENTAL R&D PROJECT
+## Project status
 
-This project is a **Proof of Concept (PoC)** exploring hybrid kernel/userspace intrusion detection using eBPF/XDP, Python Raw Sockets, and AWK. While V7.2.0 introduces genuine kernel-level packet processing, the control plane remains in userspace — this is **not** a certified production security solution.
+**VGT Auto-Punisher is closed and archived.**
 
-**Do not use this in critical production environments.** For enterprise-grade protection, we recommend established eBPF/Netfilter solutions like CrowdSec or nftables alongside this tool — not instead of them.
+The project is no longer actively developed, maintained or recommended for new installations. It remains publicly available as a historical research project and as the technical predecessor of **VGT GeDefense**.
 
----
-
-## 🚨 CRITICAL SECURITY NOTICE — VULNERABILITY DISCLOSURE
-
-**All users running legacy versions (<= V6.3.2) must update immediately.**
-
-Three severe vulnerabilities were identified in the legacy architecture:
-
-| CVE Class | Component | Description |
+| Project | Status | Repository |
 |---|---|---|
-| **CWE-77** — Command Injection | L7 Ghost Sensor | Unsanitized SNI/Host header data passed into shell execution context — RCE vector |
-| **CWE-117** — Log Forging | AWK Engine | Attacker-controlled input could inject forged entries into journal stream, bypassing detection logic |
-| **CWE-59** — Symlink Attack | `/tmp` handling | Insecure temp file operations exposed to symlink attack |
+| **VGT Auto-Punisher** | Archived / discontinued | This repository |
+| **VGT GeDefense** | Active successor | [visiongaiatechnology/gedefense](https://github.com/visiongaiatechnology/gedefense) |
 
-**Patch Status (V6.4.0+):** Shell evaluations replaced with direct IPC queue. All inputs strictly sanitized before reaching the rendering engine. V7.2.0 extends this with `journalctl _UID=0` log verification — log forging from unprivileged processes is structurally impossible.
+For new deployments, testing, bug reports, contributions and security research, use GeDefense:
 
-🙏 **Special Thanks:** Massive respect and gratitude to **Will** ([github.com/gtech](https://github.com/gtech)) for responsibly disclosing these vulnerabilities, verifying the textbook command injection, and providing invaluable architectural feedback. His audit was the catalyst for reframing this project as a transparent, educational R&D initiative.
-
----
-
-## 📋 Changelog — V7.3.0
-
-> **V7.3.0 closes the two structural risks introduced in V7.2.0** — runtime compiler dependency and JA3 spoofability — with a Zero-Compiler Loader and the VGT TLS Behavioral Risk Engine.
-
-| Feature | V7.2.0 | V7.3.0 |
-|---|---|---|
-| **eBPF Loading** | Runtime Clang compilation on target system | Embedded Base64 ELF bytecode — no compiler on production server |
-| **Compiler Dependency** | `clang`, `llvm`, `linux-headers` required at runtime | `bpftool` only — compiler toolchain eliminated from server |
-| **eBPF Failsafe** | Compilation failure = no XDP protection | Kernel verifier reject → automatic IPSet fallback, no protection gap |
-| **JA3 Spoofing Resistance** | Static MD5 hash matching — bypassable via `utls`/`curl-impersonate` | VGT-TRE multi-dimensional behavioral analysis — spoofing detected heuristically |
-| **Handshake Velocity** | Not tracked | TLS handshake / HTTP request ratio — flood without HTTP → instant block |
-| **ALPN Validation** | Not checked | Chrome/H2 ALPN claims verified — missing `h2` extension = spoofing flag |
-| **GREASE Consistency** | Not checked | Chrome signatures without GREASE values = integrity alarm |
+```text
+https://github.com/visiongaiatechnology/gedefense
+```
 
 ---
 
-## 📋 Changelog — V7.2.0
+## Why Auto-Punisher was replaced
 
-> **V7.2.0 is a generational architecture leap.** The project breaks through the userspace ceiling with kernel-level eBPF/XDP packet processing, enterprise cluster sync, and JA3 TLS fingerprinting.
+Auto-Punisher began as an experimental investigation into behavior-based Linux intrusion detection using Bash, AWK, Python raw sockets, Netfilter and later eBPF/XDP.
 
-| Feature | V6.4.0 | V7.2.0 |
-|---|---|---|
-| **Packet Filter Layer** | Userspace + iptables/ipset fallback | eBPF/XDP — kernel driver level, bypasses TCP/IP stack |
-| **SYN Flood Resistance** | CPU bottleneck under massive L4 floods | XDP_DROP at NIC driver — near-zero CPU cost |
-| **Cluster Sync** | Single isolated node | Redis PubSub — native RESP client, no dependencies |
-| **Metrics** | In-memory AWK TUI only | Prometheus HTTP exporter (port 9100, loopback-bound) |
-| **L7 Detection Depth** | SNI + HTTP Host parsing | SNI + HTTP Host + **JA3 TLS fingerprinting** |
-| **IPv6 Protection** | Single-address tracking | Dynamic /64 subnet banning |
-| **Log Spoofing Resistance** | Global journalctl (spoofable via `logger`) | `_UID=0` systemd verification — unforgeable |
-| **L7 Sensor DoS** | IndexError on malformed frames → crash | try-except per packet — silent discard, sensor stays live |
-| **Logger Injection** | Variables in logger call — flag injection possible | POSIX `--` option terminator — structurally prevented |
-| **Prometheus Exposure** | Bound to `0.0.0.0` (internet-exposed) | Strictly bound to `127.0.0.1` |
-| **TUI Rendering** | Terminal clear on each frame — flicker under load | ANSI `\033[H` double-buffering — stable at 10,000+ events/s |
+The project demonstrated important concepts, but its original architecture eventually reached the limits of a shell- and userspace-heavy security stack. Continuing to extend that foundation would have increased complexity and security risk.
+
+The lessons, concepts and strongest ideas from Auto-Punisher were therefore carried into a new architecture:
+
+# VGT GeDefense
+
+GeDefense is not a renamed Auto-Punisher release. It is the structured continuation and architectural redesign of the project.
+
+```text
+VGT Auto-Punisher
+    Experimental Bash / AWK / Python security research
+    Hybrid userspace and kernel packet defense
+    Early behavior analysis and automatic response concepts
+                         │
+                         ▼
+VGT GeDefense
+    Rust eBPF/XDP data plane
+    Go control plane and Host XDR
+    Privilege-separated Rust response core
+    Authenticated IPC and signed policies
+    Encrypted evidence and operational state
+    Reversible hardening and controlled response gates
+    Local, sovereign dashboard without cloud control plane
+```
 
 ---
 
-## 💎 Support the Project
+## Continue with GeDefense
 
-[![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/dergoldenelotus)
+### Repository
+
+[github.com/visiongaiatechnology/gedefense](https://github.com/visiongaiatechnology/gedefense)
+
+### What moved to GeDefense
+
+- kernel-near IPv4 and IPv6 defense with Rust eBPF/XDP;
+- management allowlists and signed CIDR policies;
+- Host XDR with multi-signal evidence gates;
+- privilege-separated response handling;
+- authenticated Control Plane ↔ Core communication;
+- encrypted operational data and evidence;
+- secure web gateway and local Command Center;
+- Observe, Canary and Enforce promotion states;
+- Emergency Stop and verified-empty rollback logic;
+- reversible Linux hardening;
+- continued GaiaOS integration.
+
+### Where to report issues
+
+Do not open new feature requests for Auto-Punisher. Security reports, bugs and improvements relating to the successor belong in the GeDefense project:
+
+[GeDefense issues](https://github.com/visiongaiatechnology/gedefense/issues)
+
+---
+
+## Historical release
+
+The final Auto-Punisher release was:
+
+```text
+VGT Auto-Punisher 7.3.0
+```
+
+Its research focus included:
+
+- an experimental eBPF/XDP and IPSet defense path;
+- IPv4 and IPv6 blocking;
+- Python `AF_PACKET` traffic inspection;
+- SNI, HTTP Host and JA3-derived signals;
+- the experimental VGT TLS Behavioral Risk Engine;
+- Redis-based synchronization concepts;
+- Prometheus metrics;
+- a terminal dashboard;
+- journal identity checks and security hardening added after responsible disclosure.
+
+These features document an important development stage, but they should not be interpreted as the current VGT security architecture.
+
+---
+
+## Security notice for existing users
+
+Existing Auto-Punisher installations should be treated as legacy deployments.
+
+- Do not deploy Auto-Punisher on new systems.
+- Do not assume that archived code receives future security patches.
+- Review all old firewall, IPSet, XDP, systemd and temporary-file state before migration.
+- Test GeDefense in **Observe mode** before enabling active response.
+- Keep emergency console access available during any kernel- or firewall-level migration.
+- Never migrate block rules blindly without first confirming the management allowlist.
+
+Auto-Punisher and GeDefense use different trust boundaries and operational models. Migration should therefore be handled as a fresh security deployment rather than an in-place script upgrade.
+
+---
+
+## Historical security disclosure
+
+Severe vulnerabilities were identified and corrected during Auto-Punisher development, including classes related to command injection, log forging and unsafe temporary-file handling.
+
+Special thanks to **Will** ([github.com/gtech](https://github.com/gtech)) for responsible disclosure, verification and architectural feedback. That audit was an important catalyst for treating Auto-Punisher transparently as an R&D project and ultimately replacing its architecture with GeDefense.
+
+The historical fixes do not change the current status: Auto-Punisher is archived and receives no future development commitment.
+
+---
+
+## Historical value
+
+Auto-Punisher remains available because it documents the path from an experimental Bash/AWK security engine toward a privilege-separated Rust, Go and eBPF security fabric.
+
+It helped explore:
+
+- where userspace automation is useful and where it becomes unsafe;
+- why adversarial parsing should move to memory-safe components;
+- how early packet rejection can reduce host resource pressure;
+- why detection and destructive response must be separated;
+- why one signal must never be enough to authorize process termination;
+- why rollback and evidence integrity are part of defense, not optional extras;
+- why a local security product should not depend on a cloud control plane.
+
+Its most important result is not the final shell script. Its most important result is **GeDefense**.
+
+---
+
+## License
+
+The historical Auto-Punisher source remains available under **AGPL-3.0-only**, subject to the repository's license file.
+
+Archival status does not revoke or alter the license already granted for published versions.
+
+---
+
+## Support VisionGaiaTechnology
 
 | Method | Address |
 |---|---|
 | **PayPal** | [paypal.me/dergoldenelotus](https://www.paypal.com/paypalme/dergoldenelotus) |
 | **Bitcoin** | `bc1q3ue5gq822tddmkdrek79adlkm36fatat3lz0dm` |
-| **ETH / USDT (ERC-20)** | `0xD37DEfb09e07bD775EaaE9ccDaFE3a5b2348Fe85` |
+| **ETH** | `0xD37DEfb09e07bD775EaaE9ccDaFE3a5b2348Fe85` |
+| **USDT (ERC-20)** | `0xD37DEfb09e07bD775EaaE9ccDaFE3a5b2348Fe85` |
 
 ---
 
-<img width="1920" height="1080" alt="VGT Dashboard Matrix" src="https://github.com/user-attachments/assets/6f6f8488-f04b-4732-93ba-6ee69ad1ad2e" />
+## About VisionGaiaTechnology
 
----
+[VisionGaiaTechnology](https://visiongaiatechnology.de) develops sovereign, local-first and open security architectures with a focus on transparent trust boundaries, memory-safe components, reversible operations and user-controlled infrastructure.
 
-## 🔬 What is the Auto-Punisher?
+<div align="center">
 
-The VGT Auto-Punisher started as an experiment: **Can we build a highly kinetic, behavior-based IDS without compiling C or Rust, relying solely on standard Linux userspace tools?**
+### Auto-Punisher ends here. GeDefense continues the mission.
 
-V6.3.4 answered that question — and hit its ceiling. V7.2.0 breaks through it.
+## [Continue to VGT GeDefense →](https://github.com/visiongaiatechnology/gedefense)
 
-```
-V4.x thought in IPs.
-V5+ thought in intentions.
-V6.3.4 reached the ceiling of what Bash/AWK can safely do.
-V7.2.0 offloads the critical path to the kernel itself.
-```
-
-The core insight of V7.2.0: the AWK analysis engine and IPC queue remain in userspace for flexibility, but the **actual packet drops happen at the NIC driver level via eBPF/XDP** — before the kernel's TCP/IP stack ever allocates a socket buffer. SYN floods that would saturate a userspace daemon are now absorbed at near-zero CPU cost.
-
----
-
-## 🏛️ Architecture — V7.2.0 Kernel Hybrid
-
-```
-Adversarial Packet arrives at NIC
-    ↓
-[ eBPF/XDP — Kernel Driver Level ]
-    → v4_ban_map (1,000,000 entries) / v6_ban_map (500,000 entries)
-    → XDP_DROP: packet never reaches TCP/IP stack
-    → Atomic load protocol — zero downtime on rule reload
-    ↓ (IP not yet banned)
-[ LAYER 4: Netfilter / iptables ]
-    → ipset fallback for non-XDP environments
-    → Drops INVALID states, XMAS, NULL scans
-    ↓
-[ LAYER 7: Python Raw Socket Sensor (Ghost Sensor) ]
-    → AF_PACKET sniff on Port 80/443
-    → Extracts SNI & HTTP Host headers
-    → Computes JA3 TLS fingerprint (MD5 of cipher suites + extensions + curves)
-    → Strict alphanumeric sanitization before any processing
-    → Writes via systemd logger (UID=0 — unforgeable identity)
-    ↓
-[ ANALYSIS: AWK Rules Engine ]
-    → Reads journalctl _UID=0 SYSLOG_IDENTIFIER=VGT_L7_GHOST (spoofing immune)
-    → Reads iptables events via journalctl -k (kernel-sourced, unforgeable)
-    → Aggregates state in RAM (O(1) bucketing)
-    → Checks Domain/IP whitelists, JA3 blocklist
-    → Evaluates velocity, port probing, SNI mismatch, subnet patterns
-    ↓
-[ EXECUTION: IPC Queue ]
-    → Named pipe /tmp/vgt_action_queue
-    → Background daemon executes eBPF map update + ipset add (zero shell eval)
-    ↓
-         ┌──────────────────────────────────────┐
-         ↓                                      ↓
-[ eBPF Map Updater ]              [ Redis PubSub Client ]
-  → Writes ban to v4/v6_ban_map     → Native RESP protocol (raw sockets)
-  → Next packet: XDP_DROP            → Replicates ban to cluster nodes
-         ↓
-[ Prometheus Exporter — 127.0.0.1:9100 ]
-  → L7 hits, kills, JA3 blocks, Redis syncs, TUI metrics
-```
-
----
-
-## 🔑 Phase A — eBPF/XDP Zero-Compiler Loader *(Hardened V7.3.0)*
-
-V7.2.0 generated and compiled C code at runtime via Clang — introducing two structural risks: compiler toolchains on production servers aid post-compromise privilege escalation, and automatic kernel header updates silently break compilation at 3am. V7.3.0 eliminates both.
-
-**The optimized eBPF bypass is embedded as a Base64-encoded ELF sector directly in the bash script.** No compiler is required on the production system.
-
-```
-V7.3.0 Load Protocol — Dual-Layer Failsafe:
-
-Step 1: Extract embedded bytecode
-  base64 --decode $EMBEDDED_XDP_OBJECT > /run/vgt_punisher/vgt_xdp.o
-
-Step 2: Attempt kernel verifier load via bpftool
-  bpftool prog load vgt_xdp.o /sys/fs/bpf/vgt_xdp
-
-  → Verifier accepts: XDP attached to NIC driver
-    Packets dropped at driver level — TCP/IP stack never reached
-
-  → Verifier rejects (kernel structure mismatch):
-    Immediate de-escalation to hardened IPSet fallback
-    No protection gap — no abort — no unhandled failure
-```
-
-**What this means operationally:**
-- Production server requires `bpftool` only — no `clang`, `llvm`, `linux-headers`
-- Kernel updates no longer silently break the XDP loader
-- Post-compromise attack surface reduced — compiler toolchain absent from server
-
-**Ban Map Capacity (unchanged):**
-- `v4_ban_map`: 1,000,000 IPv4 entries
-- `v6_ban_map`: 500,000 IPv6 entries
-
----
-
-## 🔑 Phase B — JA3 + VGT TLS Behavioral Risk Engine (VGT-TRE) *(Hardened V7.3.0)*
-
-V7.2.0 used static JA3 MD5 matching — bypassable via `utls` (Go) or `curl-impersonate` by mirroring Chrome's exact cipher suite order. An attacker could declare themselves a legitimate browser and pass the filter entirely.
-
-V7.3.0 extends JA3 with **multidimensional behavioral analysis**. Static signatures are the first gate; VGT-TRE is the second.
-
-```
-Incoming L7 Packet
-        ↓
-JA3 Signature Extraction
-        ↓
-JA3 in malicious database? ──[Match]──→ BAN
-        ↓ [No match]
-VGT TLS Behavioral Risk Engine (VGT-TRE)
-        ↓
-   ┌────────────────────┬──────────────────┬──────────────────────┐
-   ↓                    ↓                  ↓                      ↓
-Handshake           ALPN               GREASE               Heuristic
-Velocity            Mismatch           Consistency          Score Sum
-Ratio > threshold   Claims Chrome      Chrome claims but    > threshold
-→ flag              but no h2/ALPN     lacks GREASE values  → BAN
-   └────────────────────┴──────────────────┴──────────────────────┘
-```
-
-### Heuristic 1 — Handshake Velocity Ratio
-
-```
-Ratio = TLS Handshakes / Successful HTTP Requests (per source IP, 5s window)
-
-Threshold: > 15 TLS handshakes with 0 HTTP transfers → BAN
-
-Logic: A real browser opens TLS, then immediately sends HTTP requests.
-A scanner opens TLS repeatedly without transferring data.
-A perfect Chrome JA3 spoof that never GETs anything is still a scanner.
-```
-
-### Heuristic 2 — ALPN Mismatch Detection
-
-```
-Modern Chrome / Firefox / Safari: ALPN extension present, declares h2 or http/1.1
-Many spoofing tools: copy cipher suite order, omit ALPN or negotiate deprecated protocols
-
-Detection: Client claims Chrome JA3 + missing/incorrect ALPN extension → spoofing flag
-```
-
-### Heuristic 3 — GREASE Structural Consistency
-
-```
-Chrome / Safari behavior: Inject random GREASE dummy values into
-  → Supported Groups
-  → Extensions list
-  → Cipher Suites
-  → Key Share entries
-  (RFC 8701 — prevents server-side hardcoding)
-
-Spoof behavior: Hardcode Chrome's known cipher order, omit GREASE randomization
-
-Detection: Chrome JA3 + no GREASE values anywhere in handshake → integrity alarm
-```
-
-**What this means operationally:** An attacker using `curl-impersonate` with a perfect Chrome JA3 hash will still fail VGT-TRE if they flood TLS handshakes, omit ALPN negotiation, or produce a structurally static handshake that no real browser would generate.
-
----
-
-## 🔑 Phase C — Redis Cluster Sync
-
-Zero-dependency cluster synchronization via a native Python RESP client implemented over raw TCP sockets — no Redis library, no external packages.
-
-```
-Node A detects attack → encodes RESP PUBLISH command → sends over raw socket → 
-Node B/C/D receive event → immediately update their eBPF ban maps
-```
-
-A ban discovered by one node propagates to the full cluster within milliseconds.
-
----
-
-## 🛡️ Strike Logic
-
-```
-[🎯] DOM-KILL     — Foreign/unknown domain (SNI mismatch) → instant XDP_DROP
-[🎯] DOM-KILL     — DIRECT_IP_OR_MALFORMED → after 3 hits (mobile noise tolerance)
-[🎯] JA3-KILL     — Known malicious TLS fingerprint → instant XDP_DROP
-[🧠] TRE-KILL     — VGT-TRE behavioral score exceeds threshold (velocity/ALPN/GREASE)
-[🔐] SSH-KILL     — SSH from non-whitelisted IP → instant
-[⚡] VELOCITY     — Flash-burst exceeds threshold → instant
-[✖]  RATE-LIMIT   — Single IP threshold exceeded
-[☢]  INFRA        — /24 subnet threshold exceeded
-[☠]  MACRO        — /16 sector threshold exceeded
-[🌐] IPV6-SUBNET  — Rotating /64 IPv6 attack → entire subnet banned
-[📁] SMB          — Port 445 Honeypot: active exploit payload or passive scan
-```
-
----
-
-## 🔒 Security Hardening (V7.2.0)
-
-### Anti-Log-Spoofing — systemd UID=0 Verification
-
-**V6.4.0 problem:** Global `journalctl --grep` allowed unprivileged processes (e.g. compromised `www-data`) to inject fake ban triggers via the `logger` command.
-
-**V7.2.0 fix:**
-```bash
-# iptables events — kernel-sourced, unforgeable
-journalctl -k
-
-# L7 events — verified UID=0 + exact SYSLOG_IDENTIFIER
-journalctl _UID=0 SYSLOG_IDENTIFIER=VGT_L7_GHOST
-```
-`systemd-journald` stores the producer UID cryptographically. Spoofing attempts from unprivileged users are silently ignored.
-
-### L7 Sensor DoS Hardening
-
-**V6.4.0 problem:** Malformed/fragmented Ethernet frames triggered `IndexError` or `struct.error` in the Python packet loop — crashing the sensor.
-
-**V7.2.0 fix:** Every byte decompression wrapped in a per-packet `try-except`. Malformed frames are silently discarded via `continue`. The sensor stays live under sustained malformed packet floods.
-
-### Logger Parameter Injection
-
-**V7.2.0 fix:** POSIX `--` option terminator applied to all `logger` calls. Flag injection via variable content is structurally impossible.
-
-### Prometheus Exposure Fix
-
-`0.0.0.0:9100` → `127.0.0.1:9100`. Security metrics are no longer internet-accessible.
-
----
-
-## 📊 TUI Performance — Double-Buffering
-
-```
-V6.4.0: Terminal clear on each frame
-  → Screen flicker under high event load
-  → Rendering instability at >1,000 events/s
-
-V7.2.0: ANSI \033[H cursor repositioning + line-level clears
-  → Zero flicker at 10,000+ events/s
-  → 132-character monospace terminal alignment
-  → Column widths mathematically calculated to prevent framebuffer overflow
-```
-
----
-
-## ⚙️ Requirements
-
-| Component | Requirement |
-|---|---|
-| **OS** | Linux (kernel 5.10+ recommended for XDP native mode) |
-| **Privileges** | root (eBPF map loading, AF_PACKET, iptables) |
-| **Python** | 3.8+ |
-| **Compiler** | None required on production server (V7.3.0 Zero-Compiler Loader) |
-| **Tools** | `bpftool`, `ipset`, `iptables`/`ip6tables`, `iproute2` (`ip link`) |
-| **Optional** | Redis instance (for cluster sync), Prometheus/Grafana (for metrics) |
-
----
-
-## 🛠️ Setup
-
-### Step 1 — Install Dependencies
-
-```bash
-# Update package index
-sudo apt update
-
-# Install required tools (no compiler needed — V7.3.0 Zero-Compiler Loader)
-sudo apt install -y bpftool ipset iptables python3
-
-# Optional: install linux-headers only if you intend to build custom eBPF objects
-# (not required for standard deployment)
-# sudo apt install -y clang llvm libbpf-dev linux-headers-$(uname -r)
-
-# Verify bpftool
-bpftool version
-
-# Verify AF_PACKET (required for L7 Ghost Sensor + VGT-TRE)
-python3 -c "import socket; s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)); print('AF_PACKET OK')"
-```
-
-> **Note:** XDP native mode requires kernel 5.10+ and a supported NIC driver (Hetzner, Strato, netcup — supported). If the kernel verifier rejects the embedded bytecode, V7.3.0 automatically de-escalates to the hardened IPSet fallback — no manual intervention required.
-
----
-
-### Step 2 — Configure Whitelists (CRITICAL)
-
-> **⚠️ YOU WILL LOCK YOURSELF OUT IF YOU SKIP THIS**
-
-```bash
-nano vgt-auto-punisher.sh
-
-# 1. Add your admin IP/Subnet:
-readonly WHITELIST_IPS="127.0.0.1 ::1 fe80::/10 YOUR_IP_HERE"
-
-# Example with /24 (for ISPs that rotate within a subnet):
-readonly WHITELIST_IPS="127.0.0.1 ::1 fe80::/10 YOUR.IP.0/24"
-
-# 2. Add legitimate domains hosted on this machine:
-readonly WHITELIST_DOMAINS="example.com www.example.com"
-
-# 3. (Optional) Configure Redis for cluster sync:
-readonly REDIS_HOST="127.0.0.1"
-readonly REDIS_PORT=6379
-
-# 4. (Optional) Add known-malicious JA3 hashes to blocklist:
-readonly JA3_BLOCKLIST="a0e9f5d64349fb13191bc781f81f42e1 ada70206e40642a3e4461f35503241d"
-```
-
-### Step 3 — Run
-
-```bash
-sudo ./vgt-auto-punisher.sh
-```
-
-The daemon will: load the eBPF/XDP program, initialize ban maps, start the Ghost Sensor, register the Prometheus exporter on `127.0.0.1:9100`, and attach to the TUI dashboard.
-
-### Step 4 — Monitor
-
-```bash
-# Prometheus metrics
-curl http://127.0.0.1:9100/metrics
-
-# Active bans
-ipset list VGT_BANNED_V4
-ipset list VGT_BANNED_V6
-
-# eBPF map contents (requires bpftool)
-bpftool map dump name v4_ban_map
-```
-
----
-
-## ⚙️ Run as systemd Service
-
-```ini
-[Unit]
-Description=VGT Auto-Punisher — eBPF/XDP Hybrid IDS
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root
-Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-Environment="PYTHONUNBUFFERED=1"
-ExecStartPre=/bin/chmod +x /root/vgt_punisher.sh
-ExecStart=/bin/bash /root/vgt_punisher.sh
-Restart=always
-RestartSec=5s
-SyslogIdentifier=vgt-punisher
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-systemctl daemon-reload
-systemctl enable vgt-punisher
-systemctl start vgt-punisher
-journalctl -u vgt-punisher -f -o cat
-```
-
----
-
-## 🔧 Advanced: Custom eBPF Bytecode Compilation
-
-The embedded bytecode covers most deployments. If your kernel differs significantly from the build environment (custom kernel forks, non-standard distributions, or significant ABI changes), compile `vgt_xdp.o` directly against your running kernel's headers for a guaranteed verifier-pass.
-
-### Build Environment Setup
-
-**Debian / Ubuntu:**
-```bash
-sudo apt update
-sudo apt install -y clang llvm libbpf-dev gcc-multilib linux-headers-$(uname -r)
-```
-
-**Rocky Linux / AlmaLinux / RHEL:**
-```bash
-sudo dnf install -y clang llvm libbpf-devel kernel-devel-$(uname -r)
-```
-
----
-
-### The eBPF C Source (`vgt_xdp.c`)
-
-```c
-#include <linux/bpf.h>
-#include <linux/if_ether.h>
-#include <linux/ip.h>
-#include <linux/ipv6.h>
-#include <linux/in.h>
-#include <bpf/bpf_helpers.h>
-
-/* Map for blocked IPv4 addresses */
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1000000);
-    __type(key, __u32);          // IPv4 address (32 bit)
-    __type(value, __u8);
-} v4_ban_map SEC(".maps");
-
-/* Map for blocked IPv6 addresses */
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 500000);
-    __type(key, unsigned char[16]); // IPv6 address (128 bit)
-    __type(value, __u8);
-} v6_ban_map SEC(".maps");
-
-SEC("xdp")
-int xdp_drop_prog(struct xdp_md *ctx) {
-    void *data_end = (void *)(long)ctx->data_end;
-    void *data     = (void *)(long)ctx->data;
-    struct ethhdr *eth = data;
-
-    // Boundary check: frame must contain at least Ethernet header
-    if ((void *)(eth + 1) > data_end) return XDP_PASS;
-
-    // IPv4 branch
-    if (eth->h_proto == __constant_htons(ETH_P_IP)) {
-        struct iphdr *iph = (void *)(eth + 1);
-        if ((void *)(iph + 1) > data_end) return XDP_PASS;
-
-        __u32 src_ip = iph->saddr;
-        if (bpf_map_lookup_elem(&v4_ban_map, &src_ip)) return XDP_DROP;
-    }
-    // IPv6 branch
-    else if (eth->h_proto == __constant_htons(ETH_P_IPV6)) {
-        struct ipv6hdr *ip6h = (void *)(eth + 1);
-        if ((void *)(ip6h + 1) > data_end) return XDP_PASS;
-
-        if (bpf_map_lookup_elem(&v6_ban_map, &ip6h->saddr.in6_u.u6_addr8))
-            return XDP_DROP;
-    }
-
-    return XDP_PASS;
-}
-
-char _license[] SEC("license") = "GPL";
-```
-
----
-
-### Compilation
-
-**Standard:**
-```bash
-clang -O2 -g -target bpf -c vgt_xdp.c -o vgt_xdp.o
-```
-
-**Debian/Ubuntu (multiarch header fix):**
-```bash
-# Use if compilation fails with missing <asm/types.h> or similar
-clang -O2 -g -target bpf \
-  -I/usr/include/$(uname -m)-linux-gnu \
-  -c vgt_xdp.c -o vgt_xdp.o
-```
-
----
-
-### Integration into `vgt_punisher.sh`
-
-**Step 1 — Convert to Base64:**
-```bash
-base64 -w 0 vgt_xdp.o > vgt_xdp_base64.txt
-```
-
-**Step 2 — Insert into script:**
-
-Open `vgt_punisher.sh`, locate the `deploy_ebpf_xdp()` function, and replace the Base64 block inside the `cat << 'EOF'` construct:
-
-```bash
-cat << 'EOF' | base64 -d > "$VGT_XDP_OBJ" 2>/dev/null || true
-YOUR_BASE64_STRING_HERE
-EOF
-```
-
-**Step 3 — Enable kernel offload:**
-```bash
-# At the top of vgt_punisher.sh:
-readonly EBPF_OFFLOAD=true
-```
-
----
-
-### Verification
-
-```bash
-# Restart the daemon
-sudo ./vgt_punisher.sh
-
-# TUI dashboard top-left should show:
-# SYSTEM CORES: [ ACTIVE | SECURED METRICS ]
-
-# Verify loaded eBPF programs
-sudo bpftool prog show
-
-# Verify active eBPF maps
-sudo bpftool map show
-```
-
----
-
-## 🆘 Emergency Reset
-
-If you lock yourself out during testing, access your VPS emergency console:
-
-```bash
-# Flush eBPF ban maps
-bpftool map dump name v4_ban_map | grep -o '"key":.*' | while read k; do bpftool map delete name v4_ban_map $k; done
-
-# Flush ipset fallback
-ipset flush VGT_BANNED_V4
-ipset flush VGT_BANNED_V6
-
-# Reset iptables
-iptables -F INPUT
-ip6tables -F INPUT
-```
-
-> All bans auto-expire after 24h. Emergency console (Strato KVM, Hetzner Console, netcup KVM) is your fallback.
-
----
-
-## 📚 What This Project Teaches
-
-V7.3.0 is a working demonstration of:
-
-- **eBPF portable bytecode deployment** — embedding pre-compiled ELF objects for zero-compiler production loading
-- **Dual-layer failsafe architecture** — graceful de-escalation from XDP to IPSet without protection gaps
-- **TLS behavioral fingerprinting** — handshake velocity, ALPN negotiation, and GREASE consistency as spoofing signals
-- **JA3 + behavioral layering** — combining static signature matching with dynamic heuristics
-- **Redis RESP protocol** — native PubSub client over raw TCP sockets, zero external libraries
-- **systemd journal UID verification** — `_UID=0` filtering for unforgeable log integrity
-- **AF_PACKET raw socket sniffing** — deep packet inspection from Python userspace
-
-For production security, the next steps are:
-- **eBPF CO-RE (Compile Once, Run Everywhere):** Portable BPF programs that don't require Clang at runtime
-- **XDP + AF_XDP:** Zero-copy packet processing to userspace
-- **Rust for parsing:** Memory-safe parsing of adversarial network input
-
-**Recommended Reading:**
-- [Cilium eBPF Documentation](https://docs.cilium.io/en/stable/bpf/)
-- [Google Project Zero Blog](https://googleprojectzero.blogspot.com/)
-- [The Linux Kernel eBPF Verifier](https://www.kernel.org/doc/html/latest/bpf/verifier.html)
-
----
-
-## 🔗 VGT Linux Defense Ecosystem
-
-| Tool | Type | Purpose |
-|---|---|---|
-| ⚔️ **VGT Auto-Punisher** | **R&D / Experimental** | eBPF/XDP Hybrid IDS — educational exploration |
-| 🌐 **[VGT Global Threat Sync](https://github.com/visiongaiatechnology/vgt-global-threat-sync)** | **Preventive** | Daily feed sync — blocks known threats before arrival |
-| 🔥 **[VGT Windows Firewall Burner](https://github.com/visiongaiatechnology/vgt-windows-burner)** | **Windows** | 280,000+ APT IPs in native Windows Firewall |
-| 🔍 **[VGT Civilian Checker](https://github.com/visiongaiatechnology/Winsyssec)** | **Audit** | Windows security posture assessment |
-
----
-
-## 🤝 Contributing
-
-Pull requests welcome. For major changes please open an issue first.
-
-Licensed under **AGPLv3** — *"Open Source. Open Knowledge."*
-
----
-
-## 🏢 About VisionGaia Technology
-
-[![VGT](https://img.shields.io/badge/VGT-VisionGaia_Technology-red?style=for-the-badge)](https://visiongaiatechnology.de)
-
-VisionGaia Technology is an R&D collective exploring experimental architectures, AI integration, and cybersecurity paradigms. We build to learn, we break things to understand them, and we share the results.
-
----
-
-*VGT Auto-Punisher V7.3.0 — eBPF/XDP Zero-Compiler Loader // VGT-TRE Behavioral Analysis // JA3 + ALPN + GREASE Heuristics // Redis Cluster Sync // Prometheus Metrics // Anti-Log-Spoofing // Dynamic IPv6 /64 Banning // AGPLv3*
+</div>
